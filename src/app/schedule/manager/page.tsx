@@ -88,15 +88,26 @@ export default function ScheduleManagerPage() {
   const eventsByDay = useMemo(() => {
     const map: Record<string, Event[]> = {};
     for (const ev of events) {
-      const d = ev.startTime ? new Date(ev.startTime) : null;
-      if (!d) continue;
-      const key = d.toISOString().slice(0, 10);
+      if (!ev.startTime) continue;
+      const d = new Date(ev.startTime);
+      if (isNaN(d.getTime())) continue;
+      // Use local date for grouping (YYYY-MM-DD in local timezone)
+      const year = d.getFullYear();
+      const month = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      const key = `${year}-${month}-${day}`;
       (map[key] ||= []).push(ev);
     }
     return map;
   }, [events]);
 
-  const selectedKey = selectedDay ? new Date(selectedDay).toISOString().slice(0, 10) : "";
+  const selectedKey = selectedDay ? (() => {
+    const d = new Date(selectedDay);
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  })() : "";
   const dayEvents = eventsByDay[selectedKey] || [];
 
   const upcoming = useMemo(() => {

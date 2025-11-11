@@ -84,7 +84,7 @@ export async function seedDatabase() {
     const sampleClients = await db.insert(clients).values([
       {
         name: 'Ava Tan',
-        phone: '6591111111',
+        phone: '6593456789',
         email: 'ava.tan@example.com',
         avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?q=80&w=400&auto=format&fit=crop',
         score: 92,
@@ -97,7 +97,7 @@ export async function seedDatabase() {
       },
       {
         name: 'Marcus Lee',
-        phone: '6592222222',
+        phone: '6598765432',
         email: 'marcus.lee@example.com',
         avatar: 'https://images.unsplash.com/photo-1531123897727-8f129e1688ce?q=80&w=400&auto=format&fit=crop',
         score: 81,
@@ -110,7 +110,7 @@ export async function seedDatabase() {
       },
       {
         name: 'Priya Sharma',
-        phone: '6593333333',
+        phone: '6592345678',
         email: 'priya.sharma@example.com',
         avatar: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?q=80&w=400&auto=format&fit=crop',
         score: 75,

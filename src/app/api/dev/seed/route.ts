@@ -20,6 +20,14 @@ export async function POST() {
     const { userId } = await auth();
     if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
+    // Fix existing phone numbers first
+    try {
+      const { fixPhoneNumbers } = await import("@/lib/db/fix-phone-numbers");
+      await fixPhoneNumbers();
+    } catch (e) {
+      console.warn("Phone number fix failed:", e);
+    }
+
     // Upsert two properties for this user
     const sampleProps = [
       {
@@ -69,9 +77,9 @@ export async function POST() {
 
     // Upsert three clients
     const sampleClients = [
-      { name: "Ava Tan", phone: "6591111111", email: "ava.tan@example.com", avatar: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?q=80&w=400&auto=format&fit=crop" },
-      { name: "Marcus Lee", phone: "6592222222", email: "marcus.lee@example.com", avatar: "https://images.unsplash.com/photo-1531123897727-8f129e1688ce?q=80&w=400&auto=format&fit=crop" },
-      { name: "Priya Sharma", phone: "6593333333", email: "priya.sharma@example.com", avatar: "https://images.unsplash.com/photo-1544005313-94ddf0286df2?q=80&w=400&auto=format&fit=crop" },
+      { name: "Ava Tan", phone: "6593456789", email: "ava.tan@example.com", avatar: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?q=80&w=400&auto=format&fit=crop" },
+      { name: "Marcus Lee", phone: "6598765432", email: "marcus.lee@example.com", avatar: "https://images.unsplash.com/photo-1531123897727-8f129e1688ce?q=80&w=400&auto=format&fit=crop" },
+      { name: "Priya Sharma", phone: "6592345678", email: "priya.sharma@example.com", avatar: "https://images.unsplash.com/photo-1544005313-94ddf0286df2?q=80&w=400&auto=format&fit=crop" },
     ];
     const ensuredClients = [] as Array<{ id: string; name: string; phone: string }>;
     for (const c of sampleClients) {

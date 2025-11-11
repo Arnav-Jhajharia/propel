@@ -11,6 +11,7 @@ import { I18nProvider } from "@/lib/i18n/provider";
 import AutoTranslator from "@/components/AutoTranslator";
 import GooglePageTranslate from "@/components/GooglePageTranslate";
 import PageTransition from "@/components/layout/PageTransition";
+import { Toaster } from "@/components/ui/sonner";
 
 export const metadata: Metadata = {
   title: "Propel - Property Rental Dashboard",
@@ -44,6 +45,7 @@ export default function RootLayout({
             <VisualEditsMessenger />
             <AutoTranslator />
             <GooglePageTranslate />
+            <Toaster />
           </I18nProvider>
         </body>
       </html>

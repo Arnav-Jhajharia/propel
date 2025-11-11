@@ -24,7 +24,7 @@ export function getBaseUrl(request?: Request): string {
       return `${url.protocol}//${url.host}`;
     } catch {}
   }
-  return 'http://localhost:3000';
+  return 'http://localhost:3001';
 }
 
 export function calendlyOAuthAuthorizeUrl(redirectUri: string, state: string): string {

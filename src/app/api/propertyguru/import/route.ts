@@ -4,6 +4,7 @@ import { db } from '@/lib/db';
 import { properties as propertiesTable } from '@/lib/db/schema';
 import { and, eq } from 'drizzle-orm';
 import { auth } from '@clerk/nextjs/server';
+import { seedDummyProspectsForProperty } from '@/lib/db/seedProspectsForProperty';
 
 export async function POST(request: NextRequest) {
   try {
@@ -52,6 +53,13 @@ export async function POST(request: NextRequest) {
             .values(dbProperty)
             .returning();
           
+          // Automatically seed dummy prospects for this property
+          try {
+            await seedDummyProspectsForProperty(insertedProperty.id as string);
+          } catch (e) {
+            console.warn("Prospect seeding failed:", e);
+          }
+          
           importedProperties.push(insertedProperty);
         } else {
           return NextResponse.json({ 
@@ -94,6 +102,13 @@ export async function POST(request: NextRequest) {
             .insert(propertiesTable)
             .values(dbProperty)
             .returning();
+          
+          // Automatically seed dummy prospects for this property
+          try {
+            await seedDummyProspectsForProperty(insertedProperty.id as string);
+          } catch (e) {
+            console.warn("Prospect seeding failed:", e);
+          }
           
           importedProperties.push(insertedProperty);
         }

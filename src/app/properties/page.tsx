@@ -24,6 +24,7 @@ import {
   ArrowUpRight,
   MessageSquare,
 } from "lucide-react";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -54,6 +55,14 @@ export default function PropertiesPage() {
   const [loading, setLoading] = useState(true);
   const [items, setItems] = useState<WithCounts[]>([]);
   const [selectedProperty, setSelectedProperty] = useState<WithCounts | null>(null);
+  const [selectedPropertyProspects, setSelectedPropertyProspects] = useState<Array<{
+    clientId: string;
+    clientName: string;
+    phone: string;
+    score: number;
+    summary?: string;
+    stage?: string;
+  }>>([]);
 
   const [addOpen, setAddOpen] = useState(false);
   const [addUrl, setAddUrl] = useState("");
@@ -97,6 +106,37 @@ export default function PropertiesPage() {
     };
     load();
   }, []);
+
+  // Load prospects when property is selected
+  useEffect(() => {
+    const loadProspects = async () => {
+      if (!selectedProperty) {
+        setSelectedPropertyProspects([]);
+        return;
+      }
+      try {
+        const res = await fetch(`/api/properties/${selectedProperty.id}/prospects`, { cache: "no-store" });
+        const data = await res.json();
+        const prospects = (data.prospects || []) as Array<{
+          clientId: string;
+          clientName: string;
+          phone: string;
+          score: number;
+          summary?: string;
+          stage?: string;
+        }>;
+        // Sort by score and take top 5
+        const topProspects = prospects
+          .sort((a, b) => (b.score || 0) - (a.score || 0))
+          .slice(0, 5);
+        setSelectedPropertyProspects(topProspects);
+      } catch (error) {
+        console.error('Error loading prospects:', error);
+        setSelectedPropertyProspects([]);
+      }
+    };
+    loadProspects();
+  }, [selectedProperty]);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -156,11 +196,32 @@ export default function PropertiesPage() {
 
   return (
     <AppShell breadcrumbItems={[{ label: "Properties" }]}>
-      <div className="flex h-[calc(100vh-4rem)] gap-4" data-tour-id="properties-list">
-        {/* Left: Properties List */}
-        <div className="flex-1 flex flex-col border-r overflow-hidden">
-          {/* Header */}
-          <div className="p-4 border-b space-y-3">
+      <div className="space-y-6">
+        {/* Summary Statistics */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <Card className="p-4">
+            <div className="text-xs text-muted-foreground mb-1">Total Properties</div>
+            <div className="text-2xl font-semibold">{stats.totalProperties}</div>
+          </Card>
+          <Card className="p-4">
+            <div className="text-xs text-muted-foreground mb-1">Total Prospects</div>
+            <div className="text-2xl font-semibold">{stats.totalProspects}</div>
+          </Card>
+          <Card className="p-4">
+            <div className="text-xs text-muted-foreground mb-1">Scheduled Viewings</div>
+            <div className="text-2xl font-semibold">{stats.totalViewings}</div>
+          </Card>
+          <Card className="p-4">
+            <div className="text-xs text-muted-foreground mb-1">Avg. Price</div>
+            <div className="text-2xl font-semibold">${stats.avgPrice.toLocaleString()}</div>
+          </Card>
+        </div>
+
+        <div className="flex h-[calc(100vh-12rem)] gap-4" data-tour-id="properties-list">
+          {/* Left: Properties List */}
+          <div className="flex-1 flex flex-col border-r overflow-hidden">
+            {/* Header */}
+            <div className="p-4 border-b space-y-3">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
@@ -216,29 +277,38 @@ export default function PropertiesPage() {
                     }`}
                   >
                     <div className="flex items-start justify-between gap-2">
-                      <div className="flex-1 min-w-0">
-                        <div className="font-medium text-sm truncate">{p.title}</div>
-                        <div className="text-xs text-muted-foreground truncate flex items-center gap-1 mt-0.5">
-                          <MapPin className="h-3 w-3 flex-shrink-0" />
-                          <span className="truncate">{p.address}</span>
-                        </div>
-                        <div className="flex items-center gap-2 mt-2">
-                          <Badge variant="secondary" className="text-xs">
-                            ${p.price.toLocaleString()}/mo
-                          </Badge>
-                          <span className="text-xs text-muted-foreground">
-                            {p.bedrooms}bd • {p.bathrooms}ba
-                          </span>
-                        </div>
-                        <div className="flex items-center gap-3 mt-1.5 text-xs text-muted-foreground">
-                          <span className="flex items-center gap-1">
-                            <Users className="h-3 w-3" />
-                            {p.prospectsCount}
-                          </span>
-                          <span className="flex items-center gap-1">
-                            <CalendarClock className="h-3 w-3" />
-                            {p.viewingsCount}
-                          </span>
+                      <div className="flex items-start gap-3 flex-1 min-w-0">
+                        {p.heroImage && (
+                          <img
+                            src={p.heroImage}
+                            alt={p.title}
+                            className="h-16 w-20 object-cover rounded-md flex-shrink-0"
+                            onError={(e) => {
+                              (e.target as HTMLImageElement).style.display = 'none';
+                            }}
+                          />
+                        )}
+                        <div className="flex-1 min-w-0">
+                          <div className="font-medium text-sm truncate">{p.title}</div>
+                          <div className="text-xs text-muted-foreground truncate flex items-center gap-1 mt-0.5">
+                            <MapPin className="h-3 w-3 flex-shrink-0" />
+                            <span className="truncate">{p.address}</span>
+                          </div>
+                          <div className="flex items-center gap-2 mt-2">
+                            <Badge variant="secondary" className="text-xs">
+                              ${p.price.toLocaleString()}/mo
+                            </Badge>
+                          </div>
+                          <div className="flex items-center gap-3 mt-1.5 text-xs text-muted-foreground">
+                            <span className="flex items-center gap-1">
+                              <Users className="h-3 w-3" />
+                              {p.prospectsCount}
+                            </span>
+                            <span className="flex items-center gap-1">
+                              <CalendarClock className="h-3 w-3" />
+                              {p.viewingsCount}
+                            </span>
+                          </div>
                         </div>
                       </div>
                       <DropdownMenu>
@@ -285,14 +355,6 @@ export default function PropertiesPage() {
                   <div className="text-xs text-muted-foreground">Size</div>
                   <div className="text-lg font-semibold mt-1">{selectedProperty.sqft} sqft</div>
                 </Card>
-                <Card className="p-3">
-                  <div className="text-xs text-muted-foreground">Bedrooms</div>
-                  <div className="text-lg font-semibold mt-1">{selectedProperty.bedrooms}</div>
-                </Card>
-                <Card className="p-3">
-                  <div className="text-xs text-muted-foreground">Bathrooms</div>
-                  <div className="text-lg font-semibold mt-1">{selectedProperty.bathrooms}</div>
-                </Card>
               </div>
 
               <div className="space-y-2">
@@ -305,6 +367,53 @@ export default function PropertiesPage() {
                   <Badge variant="outline">{selectedProperty.viewingsCount}</Badge>
                 </div>
               </div>
+
+              {/* Top Prospects Section */}
+              {selectedPropertyProspects.length > 0 && (
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-medium flex items-center gap-1">
+                      <TrendingUp className="h-3 w-3" />
+                      Top Prospects
+                    </span>
+                  </div>
+                  <div className="space-y-2">
+                    {selectedPropertyProspects.map((prospect) => (
+                      <div
+                        key={prospect.clientId}
+                        className="p-2 rounded-md border hover:bg-muted/40 transition-colors cursor-pointer"
+                        onClick={() => router.push(`/properties/${selectedProperty.id}`)}
+                      >
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="flex items-center gap-2 flex-1 min-w-0">
+                            <Avatar className="h-6 w-6 flex-shrink-0">
+                              <AvatarImage src={""} />
+                              <AvatarFallback className="text-xs">{prospect.clientName?.[0] ?? "C"}</AvatarFallback>
+                            </Avatar>
+                            <div className="min-w-0 flex-1">
+                              <div className="font-medium text-xs truncate">{prospect.clientName}</div>
+                              <div className="text-xs text-muted-foreground truncate">{prospect.phone}</div>
+                            </div>
+                          </div>
+                          <Badge variant={prospect.score > 85 ? "default" : prospect.score > 70 ? "secondary" : "outline"} className="flex-shrink-0 text-xs">
+                            {prospect.score}
+                          </Badge>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  {selectedProperty.prospectsCount > 5 && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="w-full text-xs"
+                      onClick={() => router.push(`/properties/${selectedProperty.id}`)}
+                    >
+                      View All {selectedProperty.prospectsCount} Prospects
+                    </Button>
+                  )}
+                </div>
+              )}
 
               <div className="flex gap-2">
                 <Button
@@ -374,6 +483,7 @@ export default function PropertiesPage() {
               </div>
             </div>
           )}
+        </div>
         </div>
       </div>
 

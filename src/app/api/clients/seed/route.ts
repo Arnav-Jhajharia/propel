@@ -12,7 +12,7 @@ export async function POST() {
     const demo = [
       {
         name: "Marcus Lee",
-        phone: "6592222222",
+        phone: "6598765432",
         email: "marcus.lee@example.com",
         avatar:
           "https://images.unsplash.com/photo-1552053831-71594a27632d?q=80&w=400&auto=format&fit=crop",
@@ -26,7 +26,7 @@ export async function POST() {
       },
       {
         name: "Ava Tan",
-        phone: "6591111111",
+        phone: "6593456789",
         email: "ava.tan@example.com",
         avatar:
           "https://images.unsplash.com/photo-1494790108377-be9c29b29330?q=80&w=400&auto=format&fit=crop",
@@ -40,7 +40,7 @@ export async function POST() {
       },
       {
         name: "Priya Sharma",
-        phone: "6593333333",
+        phone: "6592345678",
         email: "priya.sharma@example.com",
         avatar:
           "https://images.unsplash.com/photo-1544005313-94ddf0286df2?q=80&w=400&auto=format&fit=crop",

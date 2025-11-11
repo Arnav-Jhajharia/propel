@@ -2,6 +2,7 @@ import { db } from "@/lib/db";
 import { properties as propertiesTable, type NewProperty } from "@/lib/db/schema";
 import { and, eq } from "drizzle-orm";
 import { scrapePortalProperty } from "@/lib/portal-scraper";
+import { seedDummyProspectsForProperty } from "@/lib/db/seedProspectsForProperty";
 
 export type AddPropertyResult = {
   created: boolean;
@@ -14,7 +15,13 @@ export type AddPropertyResult = {
 };
 
 export async function addPropertyFromUrl(propertyUrl: string, userId: string): Promise<AddPropertyResult> {
+  const timestamp = new Date().toISOString();
+  console.log(`[BACKEND TOOL DEBUG ${timestamp}] 🏠 addPropertyFromUrl called`);
+  console.log(`[BACKEND TOOL DEBUG ${timestamp}] 🌐 URL: ${propertyUrl}`);
+  console.log(`[BACKEND TOOL DEBUG ${timestamp}] 👤 User ID: ${userId}`);
+  
   if (!propertyUrl || !/^https?:\/\//i.test(propertyUrl)) {
+    console.log(`[BACKEND TOOL DEBUG ${timestamp}] ❌ Invalid URL`);
     throw new Error("A valid property URL is required");
   }
 
@@ -30,14 +37,17 @@ export async function addPropertyFromUrl(propertyUrl: string, userId: string): P
   };
 
   const normalizedUrl = normalizeUrl(propertyUrl);
+  console.log(`[BACKEND TOOL DEBUG ${timestamp}] 🔗 Normalized URL: ${normalizedUrl}`);
 
   // Check if property already exists by URL
+  console.log(`[BACKEND TOOL DEBUG ${timestamp}] 🔍 Checking if property exists in database...`);
   let existing = await db
     .select()
     .from(propertiesTable)
     .where(and(eq(propertiesTable.url, normalizedUrl), eq(propertiesTable.userId, userId)))
     .limit(1);
   if (existing.length === 0) {
+    console.log(`[BACKEND TOOL DEBUG ${timestamp}] 🔍 Trying original URL format...`);
     existing = await db
       .select()
       .from(propertiesTable)
@@ -47,6 +57,7 @@ export async function addPropertyFromUrl(propertyUrl: string, userId: string): P
 
   if (existing.length > 0) {
     const p = existing[0];
+    console.log(`[BACKEND TOOL DEBUG ${timestamp}] ✅ Property already exists: ${p.id}`);
     return {
       created: false,
       property: { id: p.id, url: p.url, title: p.title },
@@ -55,10 +66,13 @@ export async function addPropertyFromUrl(propertyUrl: string, userId: string): P
   }
 
   // Scrape property details from supported portals
+  console.log(`[BACKEND TOOL DEBUG ${timestamp}] 🕷️  Scraping property from portal...`);
   const scraped = await scrapePortalProperty(propertyUrl);
   if (!scraped) {
+    console.log(`[BACKEND TOOL DEBUG ${timestamp}] ❌ Failed to scrape property`);
     throw new Error("Failed to scrape property from portal");
   }
+  console.log(`[BACKEND TOOL DEBUG ${timestamp}] ✅ Scraped property: ${scraped.title}`);
 
   const newProperty: NewProperty = {
     userId,
@@ -76,12 +90,23 @@ export async function addPropertyFromUrl(propertyUrl: string, userId: string): P
     availableFrom: scraped.availableFrom,
   };
 
+  console.log(`[BACKEND TOOL DEBUG ${timestamp}] 💾 Inserting property into database...`);
   const [inserted] = await db.insert(propertiesTable).values(newProperty).returning();
+  console.log(`[BACKEND TOOL DEBUG ${timestamp}] ✅ Property inserted: ${inserted.id}`);
+
+  // Automatically seed dummy prospects for this property to improve demo UX
+  try {
+    console.log(`[BACKEND TOOL DEBUG ${timestamp}] 🌱 Seeding prospects for property...`);
+    await seedDummyProspectsForProperty(inserted.id as string);
+    console.log(`[BACKEND TOOL DEBUG ${timestamp}] ✅ Prospects seeded successfully`);
+  } catch (e) {
+    console.warn(`[BACKEND TOOL DEBUG ${timestamp}] ⚠️ Prospect seeding failed:`, e);
+  }
 
   return {
     created: true,
     property: { id: inserted.id, url: inserted.url, title: inserted.title },
-    message: "Property imported successfully",
+    message: "Property imported successfully (with demo prospects)",
   };
 }
 

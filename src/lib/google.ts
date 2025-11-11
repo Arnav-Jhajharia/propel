@@ -9,7 +9,7 @@ function baseUrl(request?: Request): string {
     const u = new URL(request.url);
     return `${u.protocol}//${u.host}`;
   }
-  return 'http://localhost:3000';
+  return 'http://localhost:3001';
 }
 
 export function getGoogleClientId(): string { const v = process.env.GOOGLE_CLIENT_ID || ''; if (!v) throw new Error('Missing GOOGLE_CLIENT_ID'); return v; }

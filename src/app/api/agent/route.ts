@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { runAgent } from "@/agent/graph";
 import { getSession } from "@/lib/simple-auth";
 import { auth as clerkAuth, clerkClient } from "@clerk/nextjs/server";
 import { db } from "@/lib/db";
@@ -59,7 +58,39 @@ export async function POST(req: Request) {
       }
     }
 
-    // Use the normal agent to handle the conversation
+    // Use Dedalus agent if enabled, otherwise fallback to LangGraph
+    const useDedalus = process.env.LLM_PROVIDER === "dedalus";
+    
+    if (useDedalus) {
+      const dedalusUrl = process.env.DEDALUS_BRIDGE_URL || "http://localhost:8001";
+      try {
+        const response = await fetch(`${dedalusUrl}/v1/agents/run`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            input: message,
+            userId,
+            agent_type: "agent",
+            history: history?.map((h) => ({ role: h.role, text: h.text })),
+          }),
+        });
+        
+        if (response.ok) {
+          const data = await response.json();
+          return NextResponse.json({ 
+            ok: true, 
+            reply: data.output || "",
+            data: data.tool_calls ? { tool_calls: data.tool_calls } : undefined
+          });
+        }
+      } catch (err) {
+        console.error("Dedalus agent error:", err);
+        // Fallback to LangGraph on error
+      }
+    }
+    
+    // Fallback to LangGraph agent
+    const { runAgent } = await import("@/agent/graph");
     const result = await runAgent({ userId, message, history });
     return NextResponse.json({ ok: true, reply: result.reply || "" });
   } catch (err: any) {

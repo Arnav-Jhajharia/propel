@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { clients, conversations, messages } from "@/lib/db/schema";
+import { clients, conversations, messages, conversationStates } from "@/lib/db/schema";
 import { eq, desc } from "drizzle-orm";
 import { auth } from "@clerk/nextjs/server";
 
@@ -25,6 +25,25 @@ export async function GET(req: Request, ctx: { params: { id: string } }) {
     }
 
     const clientData = client[0];
+
+    // Get conversation state for screening answers
+    const stateRows = await db
+      .select()
+      .from(conversationStates)
+      .where(eq(conversationStates.clientPhone, clientData.phone || ""))
+      .orderBy(desc(conversationStates.updatedAt))
+      .limit(1);
+
+    let screeningAnswers: any = {};
+    if (stateRows.length > 0 && stateRows[0].answers) {
+      try {
+        screeningAnswers = typeof stateRows[0].answers === 'string' 
+          ? JSON.parse(stateRows[0].answers) 
+          : stateRows[0].answers;
+      } catch (e) {
+        console.warn("Failed to parse conversation state answers:", e);
+      }
+    }
 
     // Demo fallbacks ("real fake data") when DB fields are missing
     const pick = <T,>(arr: T[]): T => arr[Math.floor(Math.random() * arr.length)];
@@ -59,12 +78,28 @@ export async function GET(req: Request, ctx: { params: { id: string } }) {
       { from: 'client', text: "In about 3 weeks.", at: new Date(Date.now() - 86000_000).toISOString() },
     ].map((m, i) => ({ id: `demo-${i}`, ...m }));
 
-    // Format screening data with fallbacks
-    const budget = clientData.budget || fallbackBudget;
-    const moveInIso = clientData.moveInDate || fallbackMoveInIso;
-    const tenantsText = (clientData.tenantCount || clientData.hasPets != null)
-      ? `${clientData.tenantCount || 1} pax${clientData.hasPets ? ", has pets" : ", no pets"}`
-      : fallbackTenants;
+    // Format screening data with fallbacks - prioritize conversation state answers
+    const budgetFromState = screeningAnswers.budget || screeningAnswers.Budget;
+    const budget = budgetFromState 
+      ? `S$${parseInt(String(budgetFromState).replace(/[^\d]/g, "")).toLocaleString()}`
+      : (clientData.budget || fallbackBudget);
+    
+    const moveInFromState = screeningAnswers.move_in || screeningAnswers.moveIn;
+    const moveInIso = moveInFromState 
+      ? (() => {
+          // Try to parse various date formats
+          const d = new Date(moveInFromState);
+          return isNaN(d.getTime()) ? fallbackMoveInIso : d.toISOString();
+        })()
+      : (clientData.moveInDate || fallbackMoveInIso);
+    
+    const tenantsFromState = screeningAnswers.tenants || screeningAnswers.Tenants;
+    const tenantsText = tenantsFromState 
+      ? tenantsFromState
+      : ((clientData.tenantCount || clientData.hasPets != null)
+          ? `${clientData.tenantCount || 1} pax${clientData.hasPets ? ", has pets" : ", no pets"}`
+          : fallbackTenants);
+    
     const screening = {
       budget,
       move_in: new Date(moveInIso).toLocaleDateString(),

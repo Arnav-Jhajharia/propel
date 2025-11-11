@@ -18,8 +18,8 @@ export const auth = betterAuth({
     requireEmailVerification: false,
   },
   secret: process.env.BETTER_AUTH_SECRET || 'dev-secret-key-change-in-production',
-  baseURL: process.env.BETTER_AUTH_URL || 'http://localhost:3000',
-  trustedOrigins: ['http://localhost:3000'],
+  baseURL: process.env.BETTER_AUTH_URL || 'http://localhost:3001',
+  trustedOrigins: ['http://localhost:3001'],
 });
 
 export type Session = typeof auth.$Infer.Session;

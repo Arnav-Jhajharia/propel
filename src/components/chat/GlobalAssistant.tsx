@@ -12,7 +12,8 @@ export default function GlobalAssistant() {
 
   if (shouldHide) return null;
 
-  return <AssistantWidget initiallyHidden lockedUntilReveal />;
+  // Show chatbot on all other pages (not initially hidden)
+  return <AssistantWidget initiallyHidden={false} lockedUntilReveal={false} />;
 }
 
 

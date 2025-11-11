@@ -3,7 +3,7 @@ import { appointments, users } from "@/lib/db/schema";
 import { and, eq } from "drizzle-orm";
 
 function baseUrl(): string {
-  return (process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000").replace(/\/$/, "");
+  return (process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3001").replace(/\/$/, "");
 }
 
 export async function listTodaysAppointments(userId: string, date?: string): Promise<Array<{ startTime?: string; title?: string; invitee?: string }>> {

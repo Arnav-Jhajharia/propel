@@ -1,467 +1,342 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { AppShell } from "@/components/layout/AppShell";
-import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { tiemposHeadline } from "./fonts";
-import { motion, AnimatePresence } from "framer-motion";
-import {
-  Sun,
-  Moon,
-  Sunrise,
-  Sunset,
-  ArrowRight,
-  Building2,
-  Users,
-  CalendarClock,
-  TrendingUp,
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { 
+  Home, 
+  Users, 
+  Calendar, 
+  CheckCircle2, 
+  MessageCircle, 
+  AlertTriangle,
   DollarSign,
-  MessageSquare,
-  Home,
-  Eye,
-  Clock,
-  CheckCircle2,
+  Building2,
+  ArrowRight,
+  AlertCircle,
+  Bell,
+  Zap
 } from "lucide-react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { Button } from "@/components/ui/button";
+import { toast } from "sonner";
 
-function getGreeting(now: Date) {
-  const h = now.getHours();
-  if (h < 5) return { title: "Good night", subtitle: "Moonlighting mode: let's keep it light and bright." };
-  if (h < 12) return { title: "Good morning", subtitle: "Rise and rent‑shine. Fresh leads, fresh coffee." };
-  if (h < 17) return { title: "Good afternoon", subtitle: "Sun's high, so are conversions. Let's go." };
-  if (h < 22) return { title: "Good evening", subtitle: "Golden hour for closing deals." };
-  return { title: "Good night", subtitle: "Night shift? We'll make it light work." };
-}
-
-type Stats = {
+type DashboardStats = {
   totalProperties: number;
   totalProspects: number;
-  totalViewings: number;
   activeProspects: number;
-  convertedProspects: number;
-  avgPrice: number;
-  conversionRate: number;
-};
-
-type RecentProspect = {
-  id: string;
-  clientId: string;
-  clientName: string;
-  clientAvatar?: string | null;
-  propertyTitle: string;
-  score: number;
-  status: string | null;
-  lastMessageAt: string;
-};
-
-type TopProperty = {
-  id: string;
-  title: string;
-  prospectsCount: number;
-  viewingsCount: number;
-  price: number;
+  upcomingViewings: number;
+  todayViewings: number;
+  converted: number;
+  activeConversations: number;
+  avgPropertyPrice: number;
+  attentionNeeded: number;
 };
 
 export default function DashboardPage() {
-  const router = useRouter();
-  const now = new Date();
-  const { title, subtitle } = useMemo(() => getGreeting(now), []);
-  const [showGreeting, setShowGreeting] = useState(false);
-  const [events, setEvents] = useState<Array<any>>([]);
-  const [eventsLoading, setEventsLoading] = useState(true);
-  const [stats, setStats] = useState<Stats>({
-    totalProperties: 0,
-    totalProspects: 0,
-    totalViewings: 0,
-    activeProspects: 0,
-    convertedProspects: 0,
-    avgPrice: 0,
-    conversionRate: 0,
-  });
-  const [recentProspects, setRecentProspects] = useState<RecentProspect[]>([]);
-  const [topProperties, setTopProperties] = useState<TopProperty[]>([]);
+  const [stats, setStats] = useState<DashboardStats | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const t1 = setTimeout(() => setShowGreeting(true), 200);
-    const t2 = setTimeout(() => {
-      window.dispatchEvent(new Event("assistant:reveal"));
-    }, 1200);
-    return () => {
-      clearTimeout(t1);
-      clearTimeout(t2);
-    };
-  }, []);
-
-  useEffect(() => {
     const load = async () => {
-      setLoading(true);
-      setEventsLoading(true);
-
       try {
-        // Load events
-        const eventsRes = await fetch("/api/scheduling/events", { credentials: "include" });
-        if (eventsRes.ok) {
-          const eventsData = await eventsRes.json();
-          const rows = Array.isArray(eventsData.events) ? eventsData.events : [];
-          setEvents(rows.filter((ev: any) => ev.status !== "canceled"));
-        }
-
-        // Load properties
-        const propsRes = await fetch("/api/properties", { cache: "no-store" });
-        const propsData = await propsRes.json();
-        const properties = propsData.properties ?? [];
-
-        // Load prospects
-        const prospectsRes = await fetch("/api/prospects", { cache: "no-store" });
-        const prospectsData = await prospectsRes.json();
-        const prospects = prospectsData.prospects ?? [];
-
-        // Calculate stats
-        const totalProperties = properties.length;
-        const totalProspects = prospects.length;
-        const activeProspects = prospects.filter((p: any) => (p.status || "") === "active").length;
-        const convertedProspects = prospects.filter((p: any) => (p.status || "") === "converted").length;
-        const totalViewings = prospects.filter((p: any) => (p.status || "") === "viewing_scheduled").length;
-        const avgPrice =
-          properties.length > 0
-            ? Math.round(properties.reduce((sum: number, p: any) => sum + (p.price || 0), 0) / properties.length)
-            : 0;
-        const conversionRate = totalProspects > 0 ? Math.round((convertedProspects / totalProspects) * 100) : 0;
-
-        setStats({
-          totalProperties,
-          totalProspects,
-          totalViewings,
-          activeProspects,
-          convertedProspects,
-          avgPrice,
-          conversionRate,
-        });
-
-        // Get recent prospects (top 5 by score)
-        const recent = prospects
-          .sort((a: any, b: any) => new Date(b.lastMessageAt || 0).getTime() - new Date(a.lastMessageAt || 0).getTime())
-          .slice(0, 5)
-          .map((p: any) => ({
-            id: p.id,
-            clientId: p.clientId,
-            clientName: p.clientName,
-            clientAvatar: p.clientAvatar,
-            propertyTitle: p.propertyTitle,
-            score: p.score,
-            status: p.status,
-            lastMessageAt: p.lastMessageAt,
-          }));
-        setRecentProspects(recent);
-
-        // Get top properties
-        const propsWithCounts = await Promise.all(
-          properties.slice(0, 5).map(async (p: any) => {
-            try {
-              const r = await fetch(`/api/properties/${p.id}/prospects`, { cache: "no-store" });
-              const d = await r.json();
-              const list = (d.prospects ?? []) as Array<{ status?: string }>;
-              const prospectsCount = list.length;
-              const viewingsCount = list.filter((x) => x.status === "viewing_scheduled").length;
-              return {
-                id: p.id,
-                title: p.title,
-                prospectsCount,
-                viewingsCount,
-                price: p.price || 0,
-              };
-            } catch {
-              return {
-                id: p.id,
-                title: p.title,
-                prospectsCount: 0,
-                viewingsCount: 0,
-                price: p.price || 0,
-              };
-            }
-          })
-        );
-        setTopProperties(propsWithCounts.sort((a, b) => b.prospectsCount - a.prospectsCount).slice(0, 3));
+        const res = await fetch("/api/dashboard/stats", { cache: "no-store" });
+        const data = await res.json();
+        setStats(data.stats);
       } catch (e) {
-        console.error("Error loading dashboard data:", e);
+        console.error("Failed to load dashboard stats:", e);
       } finally {
         setLoading(false);
-        setEventsLoading(false);
       }
     };
-
     load();
   }, []);
 
-  const formatTimeAgo = (dateString: string) => {
-    const date = new Date(dateString);
-    const now = new Date();
-    const diffMs = now.getTime() - date.getTime();
-    const diffMins = Math.floor(diffMs / 60000);
-    const diffHours = Math.floor(diffMs / 3600000);
-    const diffDays = Math.floor(diffMs / 86400000);
+  // Demo notifications on page load
+  useEffect(() => {
+    const notifications = [
+      {
+        message: "Accepted James Lim autonomously",
+        description: "Application approved for The Tapestry",
+        delay: 500,
+        icon: CheckCircle2,
+        type: "success" as const,
+      },
+      {
+        message: "Get ready for handoff",
+        description: "Sarah Chen's viewing confirmed for Saturday 3 PM",
+        delay: 2000,
+        icon: Bell,
+        type: "info" as const,
+      },
+      {
+        message: "Autonomous action completed",
+        description: "Scheduled follow-up with Marcus Lee",
+        delay: 3500,
+        icon: Zap,
+        type: "success" as const,
+      },
+      {
+        message: "New prospect requires attention",
+        description: "Priya Sharma's budget is below asking price",
+        delay: 5000,
+        icon: AlertCircle,
+        type: "warning" as const,
+      },
+    ];
 
-    if (diffMins < 1) return "Just now";
-    if (diffMins < 60) return `${diffMins}m ago`;
-    if (diffHours < 24) return `${diffHours}h ago`;
-    if (diffDays < 7) return `${diffDays}d ago`;
-    return date.toLocaleDateString();
-  };
+    notifications.forEach((notif) => {
+      setTimeout(() => {
+        const Icon = notif.icon;
+        if (notif.type === "success") {
+          toast.success(notif.message, {
+            description: notif.description,
+            icon: <Icon className="h-4 w-4" />,
+            duration: 5000,
+          });
+        } else if (notif.type === "warning") {
+          toast.warning(notif.message, {
+            description: notif.description,
+            icon: <Icon className="h-4 w-4" />,
+            duration: 5000,
+          });
+        } else {
+          toast.info(notif.message, {
+            description: notif.description,
+            icon: <Icon className="h-4 w-4" />,
+            duration: 5000,
+          });
+        }
+      }, notif.delay);
+    });
+  }, []);
+
+  const statCards = [
+    {
+      title: "Total Properties",
+      value: stats?.totalProperties || 0,
+      icon: Building2,
+      color: "text-blue-600",
+      bgColor: "bg-blue-50",
+      link: "/properties",
+    },
+    {
+      title: "Active Prospects",
+      value: stats?.activeProspects || 0,
+      icon: Users,
+      color: "text-green-600",
+      bgColor: "bg-green-50",
+      link: "/prospects",
+    },
+    {
+      title: "Upcoming Viewings",
+      value: stats?.upcomingViewings || 0,
+      icon: Calendar,
+      color: "text-purple-600",
+      bgColor: "bg-purple-50",
+      link: "/schedule/manager",
+    },
+    {
+      title: "Converted Deals",
+      value: stats?.converted || 0,
+      icon: CheckCircle2,
+      color: "text-emerald-600",
+      bgColor: "bg-emerald-50",
+      link: "/prospects?status=converted",
+    },
+  ];
+
+  const quickActions = [
+    {
+      title: "Viewings Today",
+      value: stats?.todayViewings || 0,
+      description: "Scheduled for today",
+      icon: Calendar,
+      link: "/schedule/manager",
+    },
+    {
+      title: "Active Conversations",
+      value: stats?.activeConversations || 0,
+      description: "Ongoing chats",
+      icon: MessageCircle,
+      link: "/prospects",
+    },
+    {
+      title: "Requires Attention",
+      value: stats?.attentionNeeded || 0,
+      description: "Needs follow-up",
+      icon: AlertTriangle,
+      link: "/prospects",
+      variant: "destructive" as const,
+    },
+    {
+      title: "Avg. Property Price",
+      value: stats?.avgPropertyPrice ? `S$${stats.avgPropertyPrice.toLocaleString()}` : "—",
+      description: "Across all listings",
+      icon: DollarSign,
+      link: "/properties",
+    },
+  ];
 
   return (
-    <AppShell showAddButton={false}>
+    <AppShell breadcrumbItems={[{ label: "Dashboard" }]}>
       <div className="space-y-6">
-        {/* Greeting */}
-        <AnimatePresence>
-          {showGreeting && (
-            <motion.div
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -8 }}
-              transition={{ duration: 0.45, ease: "easeOut" }}
-              className="space-y-2"
-            >
-              <div className="flex items-center gap-3">
-                {(() => {
-                  const h = now.getHours();
-                  if (h < 5) return <Moon className="h-6 w-6" />;
-                  if (h < 8) return <Sunrise className="h-6 w-6" />;
-                  if (h < 18) return <Sun className="h-6 w-6" />;
-                  if (h < 21) return <Sunset className="h-6 w-6" />;
-                  return <Moon className="h-6 w-6" />;
-                })()}
-                <h1 className={`text-3xl md:text-4xl font-semibold tracking-tight text-foreground/90 ${tiemposHeadline.className}`}>
-                  {title}
-                </h1>
-              </div>
-              <p className="text-muted-foreground">{subtitle}</p>
-            </motion.div>
-          )}
-        </AnimatePresence>
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
+          <p className="text-foreground/70 mt-1">
+            Overview of your real estate operations
+          </p>
+        </div>
 
-        {/* Stats Grid */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        {loading ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            {[1, 2, 3, 4].map((i) => (
+              <Card key={i} className="animate-pulse">
+                <CardHeader>
+                  <div className="h-4 bg-muted rounded w-24"></div>
+                </CardHeader>
+                <CardContent>
+                  <div className="h-8 bg-muted rounded w-16"></div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            {statCards.map((stat) => {
+              const Icon = stat.icon;
+              return (
+                <Link key={stat.title} href={stat.link}>
+                  <Card className="hover:shadow-md transition-shadow cursor-pointer">
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                      <CardTitle className="text-sm font-medium text-foreground/70">
+                        {stat.title}
+                      </CardTitle>
+                      <div className={`${stat.bgColor} p-2 rounded-lg`}>
+                        <Icon className={`h-4 w-4 ${stat.color}`} />
+                      </div>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-2xl font-bold">{stat.value}</div>
+                    </CardContent>
+                  </Card>
+                </Link>
+              );
+            })}
+          </div>
+        )}
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <Card>
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <div className="text-xs text-muted-foreground mb-1">Properties</div>
-                  <div className="text-2xl font-semibold">{loading ? "..." : stats.totalProperties}</div>
-                </div>
-                <Building2 className="h-8 w-8 text-muted-foreground/50" />
-              </div>
+            <CardHeader>
+              <CardTitle>Quick Actions</CardTitle>
+              <CardDescription>At a glance</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {quickActions.map((action) => {
+                const Icon = action.icon;
+                return (
+                  <Link key={action.title} href={action.link}>
+                    <div className="flex items-center justify-between p-3 rounded-lg border hover:bg-muted/50 transition-colors cursor-pointer">
+                      <div className="flex items-center gap-3">
+                        <div className={`p-2 rounded-lg ${action.variant === "destructive" ? "bg-red-50" : "bg-muted"}`}>
+                          <Icon className={`h-4 w-4 ${action.variant === "destructive" ? "text-red-600" : "text-foreground/60"}`} />
+                        </div>
+                        <div>
+                          <div className="font-medium">{action.title}</div>
+                          <div className="text-sm text-foreground/70">{action.description}</div>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-lg font-semibold">{action.value}</span>
+                        <ArrowRight className="h-4 w-4 text-foreground/60" />
+                      </div>
+                    </div>
+                  </Link>
+                );
+              })}
             </CardContent>
           </Card>
+
           <Card>
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <div className="text-xs text-muted-foreground mb-1">Prospects</div>
-                  <div className="text-2xl font-semibold">{loading ? "..." : stats.totalProspects}</div>
+            <CardHeader>
+              <CardTitle>Insights</CardTitle>
+              <CardDescription>Key metrics and trends</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-foreground/70">Total Prospects</span>
+                  <span className="font-semibold">{stats?.totalProspects || 0}</span>
                 </div>
-                <Users className="h-8 w-8 text-muted-foreground/50" />
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-foreground/70">Conversion Rate</span>
+                  <span className="font-semibold">
+                    {stats?.totalProspects
+                      ? `${Math.round((stats.converted / stats.totalProspects) * 100)}%`
+                      : "0%"}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-foreground/70">Properties Listed</span>
+                  <span className="font-semibold">{stats?.totalProperties || 0}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-foreground/70">Avg. Prospects/Property</span>
+                  <span className="font-semibold">
+                    {stats?.totalProperties
+                      ? Math.round((stats.totalProspects || 0) / stats.totalProperties)
+                      : 0}
+                  </span>
+                </div>
               </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <div className="text-xs text-muted-foreground mb-1">Viewings</div>
-                  <div className="text-2xl font-semibold">{loading ? "..." : stats.totalViewings}</div>
-                </div>
-                <CalendarClock className="h-8 w-8 text-muted-foreground/50" />
-              </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <div className="text-xs text-muted-foreground mb-1">Conversion</div>
-                  <div className="text-2xl font-semibold">{loading ? "..." : `${stats.conversionRate}%`}</div>
-                </div>
-                <TrendingUp className="h-8 w-8 text-muted-foreground/50" />
+
+              <div className="pt-4 border-t">
+                <Link href="/properties">
+                  <Button variant="outline" className="w-full">
+                    <Home className="h-4 w-4 mr-2" />
+                    View All Properties
+                  </Button>
+                </Link>
               </div>
             </CardContent>
           </Card>
         </div>
 
-        {/* Main Content Grid */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Left: Recent Prospects */}
-          <div className="lg:col-span-2 space-y-6">
-            {/* Recent Prospects */}
-            <Card>
-              <CardContent className="p-4">
-                <div className="flex items-center justify-between mb-4">
-                  <h2 className="font-semibold text-lg">Recent Prospects</h2>
-                  <Button variant="ghost" size="sm" onClick={() => router.push("/prospects")}>
-                    View all <ArrowRight className="h-3 w-3 ml-1" />
-                  </Button>
-                </div>
-                {loading ? (
-                  <div className="space-y-3">
-                    <div className="h-16 bg-muted animate-pulse rounded" />
-                    <div className="h-16 bg-muted animate-pulse rounded" />
-                  </div>
-                ) : recentProspects.length === 0 ? (
-                  <div className="text-sm text-muted-foreground text-center py-8">No prospects yet</div>
-                ) : (
-                  <div className="space-y-3">
-                    {recentProspects.map((p) => (
-                      <div
-                        key={p.id}
-                        onClick={() => router.push(`/clients/${p.clientId}`)}
-                        className="flex items-center gap-3 p-3 rounded-lg hover:bg-muted/50 cursor-pointer transition-colors"
-                      >
-                        <Avatar className="h-10 w-10">
-                          <AvatarImage src={p.clientAvatar || undefined} />
-                          <AvatarFallback>{p.clientName?.[0] ?? "C"}</AvatarFallback>
-                        </Avatar>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2">
-                            <div className="font-medium text-sm truncate">{p.clientName}</div>
-                            <Badge
-                              variant={p.score > 85 ? "default" : p.score > 70 ? "secondary" : "outline"}
-                              className="text-xs"
-                            >
-                              {p.score}
-                            </Badge>
-                          </div>
-                          <div className="text-xs text-muted-foreground truncate">{p.propertyTitle}</div>
-                          <div className="text-xs text-muted-foreground mt-1">{formatTimeAgo(p.lastMessageAt)}</div>
-                        </div>
-                        <Button variant="ghost" size="sm" onClick={(e) => { e.stopPropagation(); router.push(`/clients/${p.clientId}`); }}>
-                          <Eye className="h-3 w-3" />
-                        </Button>
-                      </div>
-                    ))}
-                  </div>
-                )}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <Link href="/properties">
+            <Card className="hover:shadow-md transition-shadow cursor-pointer">
+              <CardHeader>
+                <CardTitle className="text-base">Properties</CardTitle>
+                <CardDescription>Manage your listings</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Building2 className="h-8 w-8 text-foreground/60" />
               </CardContent>
             </Card>
-
-            {/* Top Properties */}
-            <Card>
-              <CardContent className="p-4">
-                <div className="flex items-center justify-between mb-4">
-                  <h2 className="font-semibold text-lg">Top Properties</h2>
-                  <Button variant="ghost" size="sm" onClick={() => router.push("/properties")}>
-                    View all <ArrowRight className="h-3 w-3 ml-1" />
-                  </Button>
-                </div>
-                {loading ? (
-                  <div className="space-y-3">
-                    <div className="h-20 bg-muted animate-pulse rounded" />
-                    <div className="h-20 bg-muted animate-pulse rounded" />
-                  </div>
-                ) : topProperties.length === 0 ? (
-                  <div className="text-sm text-muted-foreground text-center py-8">No properties yet</div>
-                ) : (
-                  <div className="space-y-3">
-                    {topProperties.map((p) => (
-                      <div
-                        key={p.id}
-                        onClick={() => router.push(`/properties/${p.id}`)}
-                        className="flex items-center justify-between p-3 rounded-lg hover:bg-muted/50 cursor-pointer transition-colors"
-                      >
-                        <div className="flex-1 min-w-0">
-                          <div className="font-medium text-sm truncate">{p.title}</div>
-                          <div className="flex items-center gap-3 mt-1.5 text-xs text-muted-foreground">
-                            <span className="flex items-center gap-1">
-                              <Users className="h-3 w-3" />
-                              {p.prospectsCount} prospects
-                            </span>
-                            <span className="flex items-center gap-1">
-                              <CalendarClock className="h-3 w-3" />
-                              {p.viewingsCount} viewings
-                            </span>
-                            <span className="flex items-center gap-1">
-                              <DollarSign className="h-3 w-3" />
-                              ${p.price.toLocaleString()}/mo
-                            </span>
-                          </div>
-                        </div>
-                        <Button variant="ghost" size="sm" onClick={(e) => { e.stopPropagation(); router.push(`/properties/${p.id}`); }}>
-                          <Eye className="h-3 w-3" />
-                        </Button>
-                      </div>
-                    ))}
-                  </div>
-                )}
+          </Link>
+          <Link href="/prospects">
+            <Card className="hover:shadow-md transition-shadow cursor-pointer">
+              <CardHeader>
+                <CardTitle className="text-base">Prospects</CardTitle>
+                <CardDescription>View all leads</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Users className="h-8 w-8 text-foreground/60" />
               </CardContent>
             </Card>
-          </div>
-
-          {/* Right: Schedule */}
-          <Card className="lg:sticky lg:top-20 self-start">
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between mb-4">
-                <div>
-                  <h2 className={`font-semibold text-lg ${tiemposHeadline.className}`}>Today's Schedule</h2>
-                  <div className="text-xs text-muted-foreground">Meetings and viewings</div>
-                </div>
-                <Link href="/schedule/all" className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors">
-                  View all
-                  <ArrowRight className="h-3 w-3" />
-                </Link>
-              </div>
-              <div className="relative pl-6">
-                <div className="absolute left-3 top-2.5 bottom-2.5 w-px bg-border/60" />
-                {eventsLoading ? (
-                  <div className="space-y-3">
-                    <div className="h-12 bg-muted animate-pulse rounded" />
-                    <div className="h-12 bg-muted animate-pulse rounded" />
-                  </div>
-                ) : events.length === 0 ? (
-                  <div className="text-sm text-muted-foreground">No upcoming appointments.</div>
-                ) : (
-                  <motion.ul
-                    initial="hidden"
-                    animate="show"
-                    variants={{ hidden: {}, show: { transition: { staggerChildren: 0.06 } } }}
-                  >
-                    {events.map((ev, i) => {
-                      const start = ev.startTime ? new Date(ev.startTime) : null;
-                      const end = ev.endTime ? new Date(ev.endTime) : null;
-                      const time = start ? start.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "";
-                      const range =
-                        start && end
-                          ? `${start.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })} – ${end.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`
-                          : time;
-                      return (
-                        <motion.li
-                          key={i}
-                          variants={{ hidden: { opacity: 0, y: 6 }, show: { opacity: 1, y: 0 } }}
-                          transition={{ duration: 0.18, ease: [0.22, 1, 0.36, 1] }}
-                          className="relative pb-4"
-                        >
-                          <div className="absolute -left-[6px] top-2 h-2 w-2 rounded-full bg-foreground/80 ring-2 ring-white shadow-sm" />
-                          <div className="group flex items-start gap-3 rounded-md p-1.5 -m-1.5 hover:bg-muted/40 transition-colors">
-                            <div className="text-xs leading-5 text-muted-foreground w-24 tabular-nums shrink-0 mt-0.5">
-                              {range}
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <div className="text-sm font-medium leading-snug line-clamp-2">{ev.title || "Meeting"}</div>
-                              <div className="text-xs text-muted-foreground truncate">
-                                {ev.inviteeName || ev.inviteeEmail || ev.inviteePhone || ""}
-                              </div>
-                            </div>
-                          </div>
-                        </motion.li>
-                      );
-                    })}
-                  </motion.ul>
-                )}
-              </div>
-            </CardContent>
-          </Card>
+          </Link>
+          <Link href="/schedule/manager">
+            <Card className="hover:shadow-md transition-shadow cursor-pointer">
+              <CardHeader>
+                <CardTitle className="text-base">Schedule</CardTitle>
+                <CardDescription>Viewings & appointments</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Calendar className="h-8 w-8 text-foreground/60" />
+              </CardContent>
+            </Card>
+          </Link>
         </div>
       </div>
     </AppShell>

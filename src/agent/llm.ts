@@ -1,17 +1,10 @@
-import OpenAI from "openai";
+import { chatCompletion } from "@/lib/llmProvider";
 import { z } from "zod";
 
-let _client: OpenAI | null = null;
-
-function getClient(): OpenAI {
-  if (_client) return _client;
-  _client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-  return _client;
-}
+// OpenAI client removed in favor of unified provider wrapper
 
 export async function smallTalkReply(history: Array<{ role: "user" | "assistant"; text: string }>, message: string): Promise<string> {
   try {
-    const client = getClient();
     const msgs = [
       {
         role: "system" as const,
@@ -21,14 +14,13 @@ export async function smallTalkReply(history: Array<{ role: "user" | "assistant"
       ...history.slice(-6).map((m) => ({ role: m.role, content: m.text })),
       { role: "user" as const, content: message },
     ];
-    const r = await client.chat.completions.create({
-      model: process.env.OPENAI_MODEL || "gpt-4o-mini",
+    const r = await chatCompletion({
       messages: msgs as any,
       temperature: 0.7,
-      top_p: 0.9,
-      max_tokens: 220,
+      topP: 0.9,
+      maxTokens: 220,
     });
-    return r.choices?.[0]?.message?.content?.trim() || "I’m here to help.";
+    return (r.content || "").toString().trim() || "I’m here to help.";
   } catch {
     return "I’m here to help.";
   }
@@ -65,7 +57,6 @@ export async function planAgentStep(
   history: Array<{ role: "user" | "assistant"; text: string }>,
   message: string
 ): Promise<ToolPlan> {
-  const client = getClient();
   const msgs = [
     {
       role: "system" as const,
@@ -170,28 +161,26 @@ export async function planAgentStep(
     },
   ];
 
-  const r = await client.chat.completions.create({
-    model: process.env.OPENAI_MODEL || "gpt-4o-mini",
+  const r = await chatCompletion({
     messages: msgs as any,
     tools,
     temperature: 0.5,
-    max_tokens: 300,
+    maxTokens: 300,
   });
 
-  const msg: any = r.choices?.[0]?.message || {};
-  const toolCalls = msg.tool_calls || msg.tool_calls; // safeguard
+  const toolCalls = (r as any).toolCalls || (r as any).tool_calls;
   if (toolCalls && toolCalls.length > 0) {
-    const call = toolCalls[0];
-    const name = call.function?.name as string;
+    const call = toolCalls[0] as any;
+    const name = call?.function?.name as string;
     let args: any = {};
     try {
-      args = call.function?.arguments ? JSON.parse(call.function.arguments) : {};
+      args = call?.function?.arguments ? JSON.parse(call.function.arguments) : {};
     } catch {
       args = {};
     }
     return { action: "tool", tool: name as any, args };
   }
-  const content = (msg.content || "").toString().trim();
+  const content = (r.content || "").toString().trim();
   if (content) return { action: "respond", reply: content };
   return { action: "respond", reply: "I can help with properties and prospects. What would you like to do?" };
 }
@@ -200,7 +189,6 @@ export async function draftWhatsAppReply(
   history: Array<{ role: "user" | "assistant"; text: string }>,
   instruction: string
 ): Promise<string> {
-  const client = getClient();
   const msgs = [
     {
       role: "system" as const,
@@ -210,14 +198,13 @@ export async function draftWhatsAppReply(
     ...history.slice(-4).map((m) => ({ role: m.role, content: m.text })),
     { role: "user" as const, content: instruction },
   ];
-  const r = await client.chat.completions.create({
-    model: process.env.OPENAI_MODEL || "gpt-4o-mini",
+  const r = await chatCompletion({
     messages: msgs as any,
     temperature: 0.7,
-    top_p: 0.9,
-    max_tokens: 160,
+    topP: 0.9,
+    maxTokens: 160,
   });
-  return r.choices?.[0]?.message?.content?.trim() || "";
+  return (r.content || "").toString().trim() || "";
 }
 
 
@@ -227,7 +214,6 @@ export async function planSetupStep(
   history: Array<{ role: "user" | "assistant"; text: string }>,
   message: string
 ): Promise<ToolPlan> {
-  const client = getClient();
   const msgs = [
     {
       role: "system" as const,
@@ -248,24 +234,22 @@ export async function planSetupStep(
     { type: "function", function: { name: "finalize_setup", description: "Mark onboarding complete if core steps met", parameters: { type: "object", properties: {} } } },
   ];
 
-  const r = await client.chat.completions.create({
-    model: process.env.OPENAI_MODEL || "gpt-4o-mini",
+  const r = await chatCompletion({
     messages: msgs as any,
     tools,
     temperature: 0.2,
-    max_tokens: 300,
+    maxTokens: 300,
   });
 
-  const msg: any = r.choices?.[0]?.message || {};
-  const toolCalls = msg.tool_calls || msg.tool_calls;
+  const toolCalls = (r as any).toolCalls || (r as any).tool_calls;
   if (toolCalls && toolCalls.length > 0) {
-    const call = toolCalls[0];
-    const name = call.function?.name as string;
+    const call = toolCalls[0] as any;
+    const name = call?.function?.name as string;
     let args: any = {};
-    try { args = call.function?.arguments ? JSON.parse(call.function.arguments) : {}; } catch { args = {}; }
+    try { args = call?.function?.arguments ? JSON.parse(call.function.arguments) : {}; } catch { args = {}; }
     return { action: "tool", tool: name as any, args };
   }
-  const content = (msg.content || "").toString().trim();
+  const content = (r.content || "").toString().trim();
   if (content) return { action: "respond", reply: content };
   return { action: "respond", reply: "Let’s continue setup. Would you like me to show what’s left?" };
 }
@@ -276,7 +260,6 @@ export async function planLeadStep(
   message: string
 ): Promise<ToolPlan> {
   try {
-    const client = getClient();
     const msgs = [
       {
         role: "system" as const,
@@ -294,24 +277,22 @@ export async function planLeadStep(
       { type: "function", function: { name: "book_viewing", description: "Book a viewing with start and end time ISO strings", parameters: { type: "object", properties: { startTime: { type: "string" }, endTime: { type: "string" }, title: { type: "string" }, inviteeName: { type: "string" }, inviteeEmail: { type: "string" }, inviteePhone: { type: "string" } }, required: ["startTime", "endTime"] } } },
     ];
 
-    const r = await client.chat.completions.create({
-      model: process.env.OPENAI_MODEL || "gpt-4o-mini",
+    const r = await chatCompletion({
       messages: msgs as any,
       tools,
       temperature: 0.2,
-      max_tokens: 300,
+      maxTokens: 300,
     });
 
-    const msg: any = r.choices?.[0]?.message || {};
-    const toolCalls = msg.tool_calls || msg.tool_calls;
+    const toolCalls = (r as any).toolCalls || (r as any).tool_calls;
     if (toolCalls && toolCalls.length > 0) {
-      const call = toolCalls[0];
-      const name = call.function?.name as string;
+      const call = toolCalls[0] as any;
+      const name = call?.function?.name as string;
       let args: any = {};
-      try { args = call.function?.arguments ? JSON.parse(call.function.arguments) : {}; } catch { args = {}; }
+      try { args = call?.function?.arguments ? JSON.parse(call.function.arguments) : {}; } catch { args = {}; }
       return { action: "tool", tool: name as any, args };
     }
-    const content = (msg.content || "").toString().trim();
+    const content = (r.content || "").toString().trim();
     if (content) return { action: "respond", reply: content };
     return { action: "respond", reply: "Thanks for reaching out. How can I help with your rental search?" };
   } catch {
@@ -325,25 +306,46 @@ export async function leadReply(
   context: any
 ): Promise<string> {
   try {
-    const client = getClient();
+    // Check if we're in screening mode
+    const isScreening = context?.screeningFields && Array.isArray(context.screeningFields) && context.screeningFields.length > 0;
+    const remainingFields = isScreening ? context.screeningFields : [];
+    
+    let systemPrompt = "You are a human‑sounding WhatsApp rental assistant for a property agent. Use ONLY plain text. Be warm and concise (1–2 sentences). Prefer contractions. Avoid corporate phrasing and templates.\n\nHard rules:\n- Never say you can't open or access links. If a URL is provided, acknowledge it succinctly (e.g., 'Got the link') and continue.\n\n";
+    
+    // Add screening-specific instructions
+    if (isScreening) {
+      const fieldLabels = remainingFields.map((f: any) => f.label).join(", ");
+      const firstField = remainingFields[0];
+      systemPrompt += `SCREENING MODE - You are actively collecting screening information.\n`;
+      systemPrompt += `- Ask for the NEXT unanswered question from: ${fieldLabels}\n`;
+      systemPrompt += `- Ask ONE question at a time, starting with: "${firstField?.label}"\n`;
+      systemPrompt += `- Be friendly and conversational, but stay focused on getting the answer\n`;
+      systemPrompt += `- After getting an answer, acknowledge it briefly and move to the next question\n`;
+      systemPrompt += `- Do NOT ask about properties or scheduling until ALL screening questions are answered\n`;
+    } else {
+      systemPrompt += `Rules using the provided Context JSON:\n`;
+      systemPrompt += `- If needPropertyLink is true or no property is in context, ask for the PropertyGuru or 99.co link, or the listing name/address, in one short sentence. Offer an alternative: ask for area, bedrooms and budget so you can suggest options.\n`;
+      systemPrompt += `- If offeredSlots are present, present exactly two as 'Saturday 3 PM' and 'Sunday 11 AM' style and ask which works.\n`;
+      systemPrompt += `- If facts or property are present, answer naturally using those details.\n`;
+      systemPrompt += `- If unsure, ask one short clarifying question that moves the rental conversation forward.\n`;
+    }
+    
     const msgs = [
       {
         role: "system" as const,
-        content:
-          "You are a human‑sounding WhatsApp rental assistant for a property agent. Use ONLY plain text. Be warm and concise (1–2 sentences). Prefer contractions. Avoid corporate phrasing and templates.\n\nHard rules:\n- Never say you can't open or access links. If a URL is provided, acknowledge it succinctly (e.g., 'Got the link') and continue.\n\nRules using the provided Context JSON:\n- If needPropertyLink is true or no property is in context, ask for the PropertyGuru or 99.co link, or the listing name/address, in one short sentence. Offer an alternative: ask for area, bedrooms and budget so you can suggest options.\n- If offeredSlots are present, present exactly two as 'Saturday 3 PM' and 'Sunday 11 AM' style and ask which works.\n- If facts or property are present, answer naturally using those details.\n- If unsure, ask one short clarifying question that moves the rental conversation forward.",
+        content: systemPrompt,
       },
       { role: "system" as const, content: `Context JSON:\n${JSON.stringify(context || {}, null, 2)}` },
       ...history.slice(-6).map((m) => ({ role: m.role, content: m.text })),
       { role: "user" as const, content: message },
     ];
-    const r = await client.chat.completions.create({
-      model: process.env.OPENAI_MODEL || "gpt-4o-mini",
+    const r = await chatCompletion({
       messages: msgs as any,
       temperature: 0.7,
-      top_p: 0.9,
-      max_tokens: 220,
+      topP: 0.9,
+      maxTokens: 220,
     });
-    return r.choices?.[0]?.message?.content?.trim() || "Happy to help.";
+    return (r.content || "").toString().trim() || "Happy to help.";
   } catch {
     return "Happy to help.";
   }
@@ -356,7 +358,6 @@ export async function extractScreeningAnswers(
   fields: Array<{ id: string; label: string }>
 ): Promise<Record<string, string>> {
   try {
-    const client = getClient();
     const fieldList = fields.map((f) => `${f.id}:${f.label}`).join("\n");
     const msgs = [
       {
@@ -368,14 +369,13 @@ export async function extractScreeningAnswers(
       ...history.slice(-6).map((m) => ({ role: m.role, content: m.text })),
       { role: "user" as const, content: message },
     ];
-    const r = await client.chat.completions.create({
-      model: process.env.OPENAI_MODEL || "gpt-4o-mini",
+    const r = await chatCompletion({
       messages: msgs as any,
       temperature: 0,
-      max_tokens: 150,
-      response_format: { type: "json_object" } as any,
+      maxTokens: 150,
+      responseFormat: "json_object",
     });
-    const text = r.choices?.[0]?.message?.content || "{}";
+    const text = (r.content || "{}").toString();
     try { return JSON.parse(text); } catch { return {}; }
   } catch {
     return {};

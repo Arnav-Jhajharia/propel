@@ -206,7 +206,7 @@ export default function ClientDetailPage() {
           <CardContent>
             {(() => {
               const fallbackName = "Marcus Lee";
-              const fallbackPhone = "+6591111111";
+              const fallbackPhone = "+6593456789";
               const clientId = data?.client?.id || "demo";
               const clientName = data?.client?.name || fallbackName;
               const clientPhone = data?.client?.phone || fallbackPhone;

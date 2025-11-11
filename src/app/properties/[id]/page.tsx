@@ -9,6 +9,9 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { ExternalLink, MapPin, Users, MessageCircle, Calendar as CalendarIcon, ArrowLeft, DollarSign, TrendingUp, AlertTriangle, Clock, Info } from "lucide-react";
 import { AppShell } from "@/components/layout/AppShell";
+import { detectAttentionReasons, type ProspectData, type AttentionReason } from "@/lib/attention-detection";
+import { AttentionBadge } from "@/components/properties/AttentionBadge";
+import { AutonomyToggle } from "@/components/properties/AutonomyToggle";
 
 type Property = {
   id: string;
@@ -59,6 +62,7 @@ export default function PropertyDetailPage() {
   const [loading, setLoading] = useState(true);
   const [calendlyUrl, setCalendlyUrl] = useState<string | null>(null);
   const [stageFilter, setStageFilter] = useState<string>("all");
+  const [attentionFilter, setAttentionFilter] = useState<boolean>(false);
   const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
 
   useEffect(() => {
@@ -104,14 +108,41 @@ export default function PropertyDetailPage() {
   }, [id]);
 
   const sorted = useMemo(() => {
-    const base = stageFilter === "all" ? prospects : prospects.filter((p) => p.stage === stageFilter);
+    let base = stageFilter === "all" ? prospects : prospects.filter((p) => p.stage === stageFilter);
+    
+    // Apply attention filter if enabled
+    if (attentionFilter && property) {
+      base = base.filter((p) => {
+        const a: any = p.answers || {};
+        const budget = typeof a.budget === "string" ? parseFloat(a.budget.replace(/[^\d.]/g, "")) : a.budget || 0;
+        const prospectData: ProspectData = {
+          score: p.score || 0,
+          budget,
+          moveInDate: a.move_in || a.moveInDate,
+          lastMessageAt: p.lastMessageAt,
+          stage: p.stage,
+          viewingScheduled: p.stage === "viewing_scheduled",
+          viewingConfirmed: false, // TODO: Add viewing confirmation tracking
+        };
+        const attention = detectAttentionReasons(prospectData, { price: property.price });
+        return attention.requiresAttention;
+      });
+    }
+    
     return [...base].sort((a, b) => (b.score || 0) - (a.score || 0));
-  }, [prospects, stageFilter]);
+  }, [prospects, stageFilter, attentionFilter, property]);
 
   const parseCurrency = (s?: string): number | null => {
     if (!s) return null;
     const n = parseInt(String(s).replace(/[^\d]/g, ""));
     return isNaN(n) ? null : n;
+  };
+
+  const formatAffordability = (affordability?: number): string => {
+    if (!affordability) return '—';
+    // Cap at 150% for display - anything above is just "Excellent fit"
+    if (affordability > 150) return '150%+';
+    return `${affordability}%`;
   };
 
   type ProspectInsights = ProspectAgg & {
@@ -120,6 +151,8 @@ export default function PropertyDetailPage() {
     affordability?: number; // budget/property price
     riskFlags: string[];
     nextAction?: string;
+    attentionReasons?: AttentionReason[];
+    requiresAttention?: boolean;
   };
 
   const enriched = useMemo<ProspectInsights[]>(() => {
@@ -140,6 +173,19 @@ export default function PropertyDetailPage() {
       let nextAction = "Send two viewing slots";
       if (riskFlags.includes("Budget below asking")) nextAction = "Offer nearby alternatives";
       if (!budget || !a.move_in) nextAction = "Collect budget and move-in";
+      
+      // Detect attention reasons
+      const prospectData: ProspectData = {
+        score: p.score || 0,
+        budget: budget || 0,
+        moveInDate: a.move_in || a.moveInDate,
+        lastMessageAt: p.lastMessageAt,
+        stage: p.stage,
+        viewingScheduled: p.stage === "viewing_scheduled",
+        viewingConfirmed: false, // TODO: Add viewing confirmation tracking
+      };
+      const attention = detectAttentionReasons(prospectData, { price });
+      
       return {
         ...p,
         wtpEstimate: wtp,
@@ -147,6 +193,8 @@ export default function PropertyDetailPage() {
         affordability,
         riskFlags,
         nextAction,
+        attentionReasons: attention.reasons,
+        requiresAttention: attention.requiresAttention,
       } as ProspectInsights;
     });
   }, [sorted, property]);
@@ -262,7 +310,7 @@ export default function PropertyDetailPage() {
           {/* Main Content */}
           <div className="lg:col-span-2 space-y-6">
             {/* Prospects Table */}
-            <Card>
+            <Card id="prospects-table">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Users className="h-5 w-5" />
@@ -286,6 +334,13 @@ export default function PropertyDetailPage() {
                       {f.label}
                     </button>
                   ))}
+                  <button
+                    onClick={() => setAttentionFilter(!attentionFilter)}
+                    className={`text-xs px-2 py-1 rounded-full border ${attentionFilter ? "bg-destructive/10 border-destructive text-destructive" : "hover:bg-muted"}`}
+                  >
+                    <AlertTriangle className="h-3 w-3 inline mr-1" />
+                    Requires Attention
+                  </button>
                 </div>
               </CardHeader>
               <CardContent>
@@ -301,7 +356,16 @@ export default function PropertyDetailPage() {
                       <MessageCircle className="h-4 w-4 mr-2" />
                       Set up WhatsApp
                       </Button>
-                      <Button variant="outline" onClick={async () => { await fetch(`/api/properties/${id}/prospects/seed`, { method: 'POST' }); location.reload(); }}>Seed demo prospects</Button>
+                      <Button variant="outline" onClick={async () => { 
+                        await fetch(`/api/properties/${id}/prospects/seed`, { method: 'POST' }); 
+                        // Also fix existing phone numbers
+                        try {
+                          await fetch('/api/dev/fix-phones', { method: 'POST' });
+                        } catch (e) {
+                          // Ignore if route doesn't exist yet
+                        }
+                        location.reload(); 
+                      }}>Seed demo prospects</Button>
                     </div>
                   </div>
                 ) : (
@@ -315,12 +379,17 @@ export default function PropertyDetailPage() {
                         <TableHead>Stage</TableHead>
                         <TableHead>Demographics</TableHead>
                         <TableHead>Last Message</TableHead>
+                        <TableHead>Attention</TableHead>
                         <TableHead className="text-right">Actions</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
                       {enriched.map((p) => (
-                        <TableRow key={p.clientId} className={`hover:bg-muted/40 cursor-pointer ${selectedClientId === p.clientId ? 'bg-muted/60' : ''}`} onClick={() => setSelectedClientId(p.clientId)}>
+                        <TableRow 
+                          key={p.clientId} 
+                          className={`hover:bg-muted/40 cursor-pointer ${selectedClientId === p.clientId ? 'bg-muted/60' : ''} ${p.requiresAttention ? 'border-l-2 border-l-destructive' : ''}`} 
+                          onClick={() => setSelectedClientId(p.clientId)}
+                        >
                           <TableCell>
                             <div className="flex items-center gap-3">
                               <Avatar className="h-9 w-9">
@@ -341,7 +410,7 @@ export default function PropertyDetailPage() {
                           </TableCell>
                           <TableCell>
                             <Badge variant={p.affordability && p.affordability >= 95 ? 'default' : p.affordability && p.affordability >= 80 ? 'secondary' : 'outline'}>
-                              {p.affordability ? `${p.affordability}%` : '—'}
+                              {formatAffordability(p.affordability)}
                             </Badge>
                           </TableCell>
                           <TableCell>
@@ -365,6 +434,13 @@ export default function PropertyDetailPage() {
                             <span className="text-xs text-muted-foreground">
                               {p.lastMessageAt ? new Date(p.lastMessageAt).toLocaleString() : "—"}
                             </span>
+                          </TableCell>
+                          <TableCell>
+                            {p.attentionReasons && p.attentionReasons.length > 0 ? (
+                              <AttentionBadge reasons={p.attentionReasons} variant="compact" />
+                            ) : (
+                              <span className="text-xs text-muted-foreground">—</span>
+                            )}
                           </TableCell>
                           <TableCell className="text-right space-x-2">
                             <Button size="sm" variant="outline" onClick={() => pingWhatsApp(p.phone, p.clientName)}>
@@ -405,7 +481,7 @@ export default function PropertyDetailPage() {
                         </div>
                         <div className="rounded-md border p-3 space-y-1">
                           <div className="text-xs text-muted-foreground">Affordability vs Asking</div>
-                          <div className="text-sm">{p.affordability ? `${p.affordability}%` : '—'}</div>
+                          <div className="text-sm">{formatAffordability(p.affordability)}</div>
                         </div>
                         <div className="rounded-md border p-3 space-y-1">
                           <div className="text-xs text-muted-foreground">Recommended Next Action</div>
@@ -436,6 +512,11 @@ export default function PropertyDetailPage() {
 
           {/* Sidebar */}
           <div className="space-y-6">
+            {/* Autonomy Toggle */}
+            {property && (
+              <AutonomyToggle propertyId={property.id} />
+            )}
+
             {/* Property Summary (compact) */}
             <Card>
               <CardHeader>
@@ -459,6 +540,83 @@ export default function PropertyDetailPage() {
                 )}
               </CardContent>
             </Card>
+
+            {/* Top Prospects */}
+            {prospects.length > 0 && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <TrendingUp className="h-5 w-5" />
+                    Top Prospects
+                  </CardTitle>
+                  <CardDescription>Best matches for this property</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  {sorted.slice(0, 5).map((prospect) => {
+                    const p = enriched.find((x) => x.clientId === prospect.clientId);
+                    return (
+                      <div
+                        key={prospect.clientId}
+                        className={`p-3 rounded-md border cursor-pointer hover:bg-muted/40 transition-colors ${selectedClientId === prospect.clientId ? 'bg-muted/60 border-primary' : ''}`}
+                        onClick={() => setSelectedClientId(prospect.clientId)}
+                      >
+                        <div className="flex items-start justify-between gap-2 mb-2">
+                          <div className="flex items-center gap-2 flex-1 min-w-0">
+                            <Avatar className="h-8 w-8 flex-shrink-0">
+                              <AvatarImage src={""} />
+                              <AvatarFallback className="text-xs">{prospect.clientName?.[0] ?? "C"}</AvatarFallback>
+                            </Avatar>
+                            <div className="min-w-0 flex-1">
+                              <div className="font-medium text-sm truncate">{prospect.clientName}</div>
+                              <div className="text-xs text-muted-foreground truncate">{prospect.phone}</div>
+                            </div>
+                          </div>
+                          <Badge variant={prospect.score > 85 ? "default" : prospect.score > 70 ? "secondary" : "outline"} className="flex-shrink-0">
+                            {prospect.score}
+                          </Badge>
+                        </div>
+                        {p && (
+                          <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                            {p.wtpEstimate && (
+                              <div className="flex items-center gap-1">
+                                <DollarSign className="h-3 w-3" />
+                                <span>S${p.wtpEstimate.toLocaleString()}</span>
+                              </div>
+                            )}
+                            {p.affordability && (
+                              <Badge variant={p.affordability >= 95 ? 'default' : p.affordability >= 80 ? 'secondary' : 'outline'} className="text-xs">
+                                {formatAffordability(p.affordability)} fit
+                              </Badge>
+                            )}
+                          </div>
+                        )}
+                        <div className="mt-2 text-xs text-muted-foreground line-clamp-1">
+                          {(() => {
+                            const a: any = prospect.answers || {};
+                            const bits: string[] = [];
+                            if (a.move_in) bits.push(`Move-in: ${a.move_in}`);
+                            if (a.budget) bits.push(`Budget: $${a.budget}`);
+                            return bits.slice(0, 2).join(" • ") || (prospect.summary || "").slice(0, 50);
+                          })()}
+                        </div>
+                      </div>
+                    );
+                  })}
+                  {prospects.length > 5 && (
+                    <Button
+                      variant="outline"
+                      className="w-full"
+                      onClick={() => {
+                        // Scroll to prospects table
+                        document.getElementById('prospects-table')?.scrollIntoView({ behavior: 'smooth' });
+                      }}
+                    >
+                      View All {prospects.length} Prospects
+                    </Button>
+                  )}
+                </CardContent>
+              </Card>
+            )}
 
             {/* Quick Actions */}
             <Card>

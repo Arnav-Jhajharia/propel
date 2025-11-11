@@ -244,6 +244,17 @@ export function getApp() {
     })
     .addNode("prompt_screening", async (state: z.infer<typeof LeadState>) => {
       const fields = state.screeningFields || (await getDefaultScreeningFields(state.userId));
+      // If this is the first message (no history or very short history), start with a greeting and first question
+      const isFirstContact = !state.history || state.history.length === 0 || state.history.length === 1;
+      
+      if (isFirstContact && fields.length > 0) {
+        // First contact - greet and ask first screening question proactively
+        const firstField = fields[0];
+        const greeting = `Hi! Thanks for reaching out. I'd love to help you find the perfect rental. To get started, I have a few quick questions.\n\nFirst, ${firstField.label.toLowerCase()}?`;
+        return { screeningFields: fields, screeningComplete: false, reply: greeting };
+      }
+      
+      // Continue with screening questions
       const reply = await leadReply(state.history || [], state.message, { screeningFields: fields, propertyTitle: state.propertyTitle });
       return { screeningFields: fields, screeningComplete: false, reply };
     })
@@ -255,11 +266,19 @@ export function getApp() {
       // Determine remaining unanswered fields
       const remaining = fields.filter((f) => !merged[f.id]);
       if (remaining.length > 0) {
-        // Still have unanswered questions - ask for the next one
+        // Still have unanswered questions - ask for the next one proactively
+        const nextField = remaining[0];
+        // Acknowledge the answer briefly and ask the next question
         const reply = await leadReply(state.history || [], state.message, { screeningFields: remaining, propertyTitle: state.propertyTitle });
+        // If the reply doesn't ask the next question explicitly, add it
+        const hasNextQuestion = reply.toLowerCase().includes(nextField.label.toLowerCase()) || reply.toLowerCase().includes("?");
+        if (!hasNextQuestion) {
+          const nextQuestion = `Got it! Next question: ${nextField.label.toLowerCase()}?`;
+          return { screeningFields: remaining, screeningAnswers: merged, screeningComplete: false, reply: nextQuestion };
+        }
         return { screeningFields: remaining, screeningAnswers: merged, screeningComplete: false, reply };
       }
-      // All screening questions answered - mark as complete
+      // All screening questions answered - mark as complete and transition to normal agent mode
       const slots = nextWeekendSlots();
       const reply = await leadReply(state.history || [], state.message, { offeredSlots: slots, propertyTitle: state.propertyTitle, profile: merged });
       return { screeningAnswers: merged, screeningComplete: true, offeredSlots: slots, reply };
@@ -312,14 +331,18 @@ export function getApp() {
     .addNode(
       "router",
       async (state: z.infer<typeof LeadState>) => {
-      // PRIORITY: If screening is not complete, redirect to screening questions
-      if (!state.screeningComplete) {
+      // PRIORITY: If screening is not complete, ALWAYS redirect to screening questions
+      // This ensures screening happens before any other conversation
+      const isScreeningComplete = state.screeningComplete === true; // Explicitly check for true
+      
+      if (!isScreeningComplete) {
         // If we have screening fields set, we're in the middle of screening
         // Route to capture_screening_answers to process the user's response
         if (state.screeningFields && state.screeningFields.length > 0) {
           return new Command({ goto: "capture_screening_answers" }) as any;
         }
         // No screening fields set yet - start screening by asking first question
+        // This happens on first contact - immediately ask screening questions
         return new Command({ goto: "prompt_screening" }) as any;
       }
 
@@ -446,10 +469,12 @@ export async function runLeadAgent(
   const app: any = getApp();
   
   // Merge persisted state into initial state
+  // IMPORTANT: If screeningComplete is not explicitly true, default to false to ensure screening happens
   const initialState: any = {
     userId,
     message,
     history,
+    screeningComplete: persistedState?.screeningComplete === true ? true : false, // Default to false if not explicitly true
     ...(persistedState || {}),
   };
   
@@ -463,7 +488,7 @@ export async function runLeadAgent(
       propertyUrl: result.propertyUrl,
       screeningFields: result.screeningFields,
       screeningAnswers: result.screeningAnswers,
-      screeningComplete: result.screeningComplete,
+      screeningComplete: result.screeningComplete ?? false, // Ensure it's always a boolean
       offeredSlots: result.offeredSlots,
     }
   };

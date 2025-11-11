@@ -31,7 +31,26 @@ export async function GET() {
       .innerJoin(properties, eq(prospects.propertyId, properties.id))
       .orderBy(desc(prospects.score));
 
-    return NextResponse.json({ prospects: rows });
+    // Deduplicate by clientId - keep the prospect with highest score (or most recent if scores are equal)
+    const seen = new Map<string, typeof rows[0]>();
+    for (const row of rows) {
+      const existing = seen.get(row.clientId);
+      if (!existing) {
+        seen.set(row.clientId, row);
+      } else {
+        // Keep the one with higher score, or if equal, the more recent one
+        const existingTime = existing.lastMessageAt ? new Date(existing.lastMessageAt).getTime() : 0;
+        const currentTime = row.lastMessageAt ? new Date(row.lastMessageAt).getTime() : 0;
+        if (row.score > existing.score || (row.score === existing.score && currentTime > existingTime)) {
+          seen.set(row.clientId, row);
+        }
+      }
+    }
+
+    // Convert back to array and sort by score
+    const unique = Array.from(seen.values()).sort((a, b) => b.score - a.score);
+
+    return NextResponse.json({ prospects: unique });
   } catch (error) {
     console.error("Error fetching prospects:", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
