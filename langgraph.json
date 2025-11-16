@@ -1,0 +1,9 @@
+{
+  "graphs": {
+    "lead": "./src/agent/studio/lead.ts:graph",
+    "agent": "./src/agent/studio/agent.ts:graph",
+    "setup": "./src/agent/studio/setup.ts:graph"
+  },
+  "env": ".env.local"
+}
+

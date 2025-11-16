@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>WhatsApp OAuth Callback</title>
+  <meta name="robots" content="noindex">
+  <style>
+    :root{--bg:#0b0c10;--card:#121319;--muted:#9aa4af;--text:#e6ebf0;--accent:#1877f2;--ok:#16a34a;--err:#dc2626}
+    *{box-sizing:border-box}
+    body{margin:0;background:var(--bg);color:var(--text);font:16px/1.5 ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Cantarell,Noto Sans,sans-serif}
+    .wrap{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px}
+    .card{width:100%;max-width:720px;background:var(--card);border:1px solid #212433;border-radius:16px;padding:24px}
+    h1{font-size:18px;margin:0 0 12px}
+    .muted{color:var(--muted)}
+    .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+    .code{font-family:ui-monospace,Menlo,Consolas,monospace;background:#0f1117;border:1px solid #1e2230;color:#d1d8e5;padding:10px;border-radius:10px;word-break:break-all}
+    .btn{appearance:none;border:0;border-radius:10px;padding:10px 14px;font-weight:600;cursor:pointer}
+    .btn-primary{background:var(--accent);color:#fff}
+    .btn-ghost{background:#1f2937;color:#e5e7eb}
+    a{color:#93c5fd;text-decoration:none}
+    a:hover{text-decoration:underline}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card" id="view">
+      <h1>WhatsApp OAuth Callback</h1>
+      <div class="muted" style="margin-bottom:12px">This page captures the short‑lived code and helps you proceed.</div>
+
+      <div id="success" style="display:none">
+        <div class="muted" style="margin-bottom:8px">Exchange this code on your server within ~30s:</div>
+        <div class="code" id="codeBox"></div>
+        <div class="row" style="margin-top:12px">
+          <button id="copyBtn" class="btn btn-primary">Copy code</button>
+          <button id="closeBtn" class="btn btn-ghost">Close window</button>
+        </div>
+        <div class="muted" style="margin-top:12px">
+          Reference: <a href="https://developers.facebook.com/docs/whatsapp/embedded-signup/implementation#launch-method-and-callback-registration" target="_blank" rel="noreferrer">Implementation</a>
+        </div>
+      </div>
+
+      <div id="error" style="display:none">
+        <div class="muted" style="margin-bottom:8px">The flow returned an error:</div>
+        <div class="code" id="errBox"></div>
+        <div class="row" style="margin-top:12px">
+          <button id="closeBtn2" class="btn btn-ghost">Close window</button>
+        </div>
+      </div>
+
+      <div id="idle" class="muted">Waiting for parameters...</div>
+    </div>
+  </div>
+
+  <script>
+    (function(){
+      const params = new URLSearchParams(location.search);
+      const code = params.get('code');
+      const error = params.get('error') || params.get('error_reason') || params.get('error_description');
+
+      const $ = (id)=>document.getElementById(id);
+      const show = (id)=>($(id).style.display='block');
+      const hide = (id)=>($(id).style.display='none');
+
+      if (code) {
+        hide('idle');
+        $('codeBox').textContent = code;
+        show('success');
+        $('copyBtn').addEventListener('click', async ()=>{
+          try { await navigator.clipboard.writeText(code); } catch {}
+        });
+        $('closeBtn').addEventListener('click', ()=>window.close());
+      } else if (error) {
+        hide('idle');
+        $('errBox').textContent = error;
+        show('error');
+        $('closeBtn2').addEventListener('click', ()=>window.close());
+      }
+    })();
+  </script>
+</body>
+</html>
+
+

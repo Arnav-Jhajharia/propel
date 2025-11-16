@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>WhatsApp Embedded Signup (Test)</title>
+  <meta name="robots" content="noindex" />
+  <style>
+    :root{--bg:#0b0c10;--card:#121319;--muted:#9aa4af;--text:#e6ebf0;--accent:#1877f2;--ok:#16a34a;--warn:#ca8a04;--err:#dc2626}
+    *{box-sizing:border-box}
+    body{margin:0;background:var(--bg);color:var(--text);font:16px/1.5 ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Cantarell,Noto Sans,sans-serif}
+    .wrap{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px}
+    .card{width:100%;max-width:720px;background:var(--card);border:1px solid #212433;border-radius:16px;padding:20px 20px 8px}
+    .row{display:flex;gap:12px;flex-wrap:wrap}
+    .row>*{flex:1 1 240px}
+    h1{font-size:18px;margin:0 0 16px}
+    h2{font-size:14px;color:var(--muted);margin:16px 0 8px}
+    code{background:#0f1117;border:1px solid #1e2230;color:#d1d8e5;padding:2px 6px;border-radius:6px}
+    input{width:100%;background:#0f1117;border:1px solid #1e2230;color:#d1d8e5;border-radius:10px;padding:10px 12px}
+    .btn{appearance:none;border:0;border-radius:10px;padding:10px 14px;font-weight:600;cursor:pointer}
+    .btn-primary{background:var(--accent);color:#fff}
+    .muted{color:var(--muted)}
+    .pill{display:inline-flex;align-items:center;gap:6px;border-radius:999px;border:1px solid #263042;padding:6px 10px;color:#cbd5e1;font-size:12px}
+    .log{height:200px;overflow:auto;background:#0a0c12;border:1px solid #1b2130;border-radius:10px;padding:10px;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;white-space:pre-wrap}
+    .footer{display:flex;justify-content:space-between;align-items:center;margin-top:10px}
+    a{color:#93c5fd;text-decoration:none}
+    a:hover{text-decoration:underline}
+  </style>
+  <script async defer crossorigin="anonymous" src="https://connect.facebook.net/en_US/sdk.js"></script>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card">
+      <h1>WhatsApp Embedded Signup (Standalone Test)</h1>
+      <div class="row">
+        <div>
+          <h2>App ID</h2>
+          <input id="appId" placeholder="YOUR_APP_ID" />
+        </div>
+        <div>
+          <h2>Configuration ID</h2>
+          <input id="configId" placeholder="YOUR_CONFIGURATION_ID" />
+        </div>
+      </div>
+      <div class="row">
+        <div>
+          <h2>Redirect URI</h2>
+          <input id="redirectUri" placeholder="https://your-host/api/whatsapp/oauth/callback" />
+        </div>
+        <div>
+          <h2>Graph API Version</h2>
+          <input id="graphVersion" placeholder="v24.0" />
+        </div>
+      </div>
+
+      <div style="margin:18px 0 8px;display:flex;gap:10px;flex-wrap:wrap">
+        <button id="btnInit" class="btn btn-primary">Initialize SDK</button>
+        <button id="btnLaunch" class="btn" style="background:#1f2937;color:#e5e7eb">Launch Embedded Signup</button>
+        <span class="pill muted" id="sdkState">SDK: not initialized</span>
+      </div>
+
+      <h2>Session messages</h2>
+      <div id="msg" class="log" aria-live="polite"></div>
+
+      <div class="footer">
+        <div class="muted">
+          Tip: you can pass URL params: <code>?app_id=...&config_id=...&redirect_uri=...</code>
+        </div>
+        <div class="muted">
+          Docs: <a href="https://developers.facebook.com/docs/whatsapp/embedded-signup/implementation#launch-method-and-callback-registration" target="_blank" rel="noreferrer">Implementation</a>
+          · <a href="https://developers.facebook.com/docs/whatsapp/embedded-signup/custom-flows/onboarding-business-app-users/" target="_blank" rel="noreferrer">Business App Onboarding</a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    (function main(){
+      const $ = (id) => document.getElementById(id);
+      const url = new URL(window.location.href);
+      const qs = url.searchParams;
+
+      // Load from URL or placeholders
+      const defaults = {
+        appId: qs.get('app_id') || 'YOUR_APP_ID',
+        configId: qs.get('config_id') || 'YOUR_CONFIGURATION_ID',
+        redirectUri: qs.get('redirect_uri') || `${location.origin}/api/whatsapp/oauth/callback`,
+        graphVersion: qs.get('graph_api_version') || 'v24.0',
+      };
+
+      $('appId').value = defaults.appId;
+      $('configId').value = defaults.configId;
+      $('redirectUri').value = defaults.redirectUri;
+      $('graphVersion').value = defaults.graphVersion;
+
+      // Message log helper
+      const logEl = $('msg');
+      const log = (...args) => {
+        const text = args.map(v => {
+          try { return typeof v === 'string' ? v : JSON.stringify(v, null, 2); } catch { return String(v); }
+        }).join(' ');
+        logEl.textContent += `${new Date().toLocaleTimeString()} — ${text}\n`;
+        logEl.scrollTop = logEl.scrollHeight;
+        console.log('[WA-EMBEDDED]', ...args);
+      };
+
+      // SDK init
+      window.fbAsyncInit = function() {
+        const appId = $('appId').value.trim();
+        const version = $('graphVersion').value.trim() || 'v24.0';
+        if (!appId) {
+          log('⚠️ Missing App ID. Enter a value and click "Initialize SDK".');
+          return;
+        }
+        window.FB.init({ appId, autoLogAppEvents: true, xfbml: true, version });
+        $('sdkState').textContent = `SDK: initialized (v ${version})`;
+        $('sdkState').style.color = '#22c55e';
+        log('✅ FB SDK initialized', { appId, version });
+      };
+
+      // Manual initialize button (in case SDK loads before fields are set)
+      $('btnInit').addEventListener('click', () => {
+        if (!window.FB) {
+          log('⏳ SDK script still loading...');
+          return;
+        }
+        window.fbAsyncInit();
+      });
+
+      // Session logging message event listener
+      window.addEventListener('message', (event) => {
+        if (!event.origin || !event.origin.endsWith('facebook.com')) return;
+        try {
+          const data = JSON.parse(event.data);
+          if (data.type === 'WA_EMBEDDED_SIGNUP') {
+            log('📩 message event:', data);
+            // TODO: send to your server if you want to persist session logs
+          }
+        } catch {
+          log('📩 message event (raw):', event.data);
+        }
+      });
+
+      // Response callback: receives 30s exchangeable code
+      const fbLoginCallback = (response) => {
+        log('↩️ FB.login response:', response);
+        if (response && response.authResponse && response.authResponse.code) {
+          const code = response.authResponse.code;
+          const redirectUri = $('redirectUri').value.trim() || `${location.origin}/api/whatsapp/oauth/callback`;
+          log('✅ Got code, redirecting to callback →', redirectUri);
+          // Redirect to server-side exchange handler
+          window.location.href = `${redirectUri}?code=${encodeURIComponent(code)}`;
+        } else {
+          log('❌ Login failed or cancelled.');
+        }
+      };
+
+      // Launch Embedded Signup (with Business App onboarding / coexistence)
+      $('btnLaunch').addEventListener('click', () => {
+        if (!window.FB) {
+          log('❌ FB SDK not loaded yet. Click "Initialize SDK" after entering App ID.');
+          return;
+        }
+
+        const configIdRaw = $('configId').value.trim();
+        const configId = /\d+/.test(configIdRaw) ? Number(configIdRaw) : configIdRaw; // Meta accepts numeric ID
+        if (!configId) {
+          log('⚠️ Missing Configuration ID.');
+          return;
+        }
+
+        const options = {
+          config_id: configId,
+          response_type: 'code',
+          override_default_response_type: true,
+          extras: {
+            setup: {},
+            featureType: 'whatsapp_business_app_onboarding',
+            sessionInfoVersion: '3'
+          }
+        };
+
+        log('🚀 Launching Embedded Signup with options:', options);
+        window.FB.login(fbLoginCallback, options);
+      });
+    })();
+  </script>
+</body>
+</html>
+
+
