@@ -78,12 +78,12 @@ export default function ClientDetailPage() {
     return isNaN(n) ? null : n;
   };
 
-  const estimateWillingnessToPay = (budgetText?: string, msgs: Array<{ from: string; text: string }>): { estimate?: number; range?: [number, number]; confidence: number; hints: string[] } => {
+  const estimateWillingnessToPay = (budgetText?: string, msgs?: Array<{ from: string; text: string }>): { estimate?: number; range?: [number, number]; confidence: number; hints: string[] } => {
     const hints: string[] = [];
     let base = parseCurrency(budgetText) || undefined;
     if (base) hints.push(`Stated budget S$${base.toLocaleString()}`);
     // Simple NLP-ish heuristics from chat
-    const joined = msgs.slice(0, 40).map(m => m.text.toLowerCase()).join(" \n ");
+    const joined = (msgs || []).slice(0, 40).map(m => m.text.toLowerCase()).join(" \n ");
     let multiplier = 1;
     if (/flexible|can stretch|open to|okay with/i.test(joined)) { multiplier += 0.08; hints.push("Chat suggests flexibility"); }
     if (/max|cannot exceed|cap|tight budget/i.test(joined)) { multiplier -= 0.08; hints.push("Chat suggests a hard cap"); }

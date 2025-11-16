@@ -29,7 +29,7 @@ export type LeadResult = {
   data?: any;
 };
 
-type ScreeningField = { id: string; label: string };
+type ScreeningField = { id: string; label: string; prompt?: string };
 
 const LeadState = z.object({
   userId: z.string(),
@@ -42,7 +42,7 @@ const LeadState = z.object({
   propertyId: z.string().optional(),
   propertyTitle: z.string().optional(),
   propertyUrl: z.string().optional(),
-  screeningFields: z.array(z.object({ id: z.string(), label: z.string() })).optional(),
+  screeningFields: z.array(z.object({ id: z.string(), label: z.string(), prompt: z.string().optional() })).optional(),
   screeningAnswers: z.record(z.string(), z.string()).optional(),
   screeningComplete: z.boolean().optional(),
   offeredSlots: z.array(z.string()).optional(),
@@ -80,16 +80,20 @@ async function getDefaultScreeningFields(userId: string): Promise<ScreeningField
         : (tpl.fields as any)
       : [];
     const fields: ScreeningField[] = (fieldsRaw || [])
-      .map((f) => ({ id: String(f.id || f.label || "field"), label: String(f.label || f.id || "Field") }))
+      .map((f) => ({ 
+        id: String(f.id || f.label || "field"), 
+        label: String(f.label || f.id || "Field"),
+        prompt: f.prompt || f.label // Include prompt!
+      }))
       .slice(0, 6);
     if (fields.length > 0) return fields;
   } catch {}
   return [
-    { id: "move_in", label: "Move-in date" },
-    { id: "lease_term", label: "Lease term (1 or 2 years)" },
-    { id: "employment", label: "Employment type" },
-    { id: "occupants", label: "Number of occupants" },
-    { id: "budget", label: "Budget (SGD)" },
+    { id: "move_in", label: "Move-in date", prompt: "When do you need to move in?" },
+    { id: "lease_term", label: "Lease term (1 or 2 years)", prompt: "How long is your lease term?" },
+    { id: "employment", label: "Employment type", prompt: "What's your employment status?" },
+    { id: "occupants", label: "Number of occupants", prompt: "How many people will be living here?" },
+    { id: "budget", label: "Budget (SGD)", prompt: "What's your monthly budget?" },
   ];
 }
 
@@ -112,8 +116,25 @@ function nextWeekendSlots(): string[] {
 
 let compiledApp: any = null;
 
+// Force recompile (useful during development)
+export function clearCache() {
+  compiledApp = null;
+  console.log('[leadGraph] ✅ Cache cleared - will recompile on next use');
+}
+
 export function getApp() {
-  if (compiledApp) return compiledApp;
+  // IN DEVELOPMENT: ALWAYS RECOMPILE
+  if (process.env.NODE_ENV === 'development') {
+    console.log('[leadGraph] 🔄 Development mode - forcing fresh compile');
+    compiledApp = null;
+  }
+  
+  if (compiledApp) {
+    console.log('[leadGraph] ♻️ Using cached graph');
+    return compiledApp;
+  }
+  
+  console.log('[leadGraph] 🆕 Compiling new graph...');
 
   const graph: any = new (StateGraph as any)(LeadState)
     .addNode("planner", async (state: z.infer<typeof LeadState>) => {
@@ -127,13 +148,17 @@ export function getApp() {
         findLastUrlInHistory(state.history || []);
       if (!plannedUrl) return {};
       const r = await addPropertyFromUrl(plannedUrl, state.userId);
-      const ctx = { property: r.property, created: r.created };
-      const reply = await leadReply(state.history || [], state.message, ctx);
+      
+      console.log('[tool_add_property_from_url] Property added:', r.property.title);
+      
+      // DON'T generate conversational reply - just acknowledge
+      const reply = `Got the link! I'm looking at ${r.property.title}.`;
+      
       return {
         propertyId: r.property.id,
         propertyTitle: r.property.title,
         propertyUrl: r.property.url,
-        data: ctx,
+        data: { property: r.property, created: r.created },
         reply,
       };
     })
@@ -176,12 +201,17 @@ export function getApp() {
       return { data: { booked: { when: chosen, start, end } } };
     })
     .addNode("respond", async (state: z.infer<typeof LeadState>) => {
+      const config = state.automationConfig || getDefaultAutomationConfig();
       const base = state.data || { propertyId: state.propertyId, screeningFields: state.screeningFields, offeredSlots: state.offeredSlots };
       const hasProperty = !!(state.propertyId || (state as any)?.data?.property || (state as any)?.data?.propertyId);
+      
       if (!hasProperty) {
-        const reply = "Could you share the PropertyGuru or 99.co link, or the listing name/address? If you prefer, tell me area, bedrooms and budget and I can suggest options.";
-        return { reply };
+        // Use custom no property message from config or default
+        const noPropertyMessage = config.phaseSettings?.handoff?.noPropertyMessage
+          || "Could you share the PropertyGuru or 99.co link, or the listing name/address? If you prefer, tell me area, bedrooms and budget and I can suggest options.";
+        return { reply: noPropertyMessage };
       }
+      
       const reply = await leadReply(state.history || [], state.message, base);
       return { reply };
     })
@@ -228,12 +258,17 @@ export function getApp() {
     .addNode("detect_property", async (state: z.infer<typeof LeadState>) => {
       const url = extractFirstUrl(state.message) || findLastUrlInHistory(state.history || []);
       if (!url) {
-        const reply = "Could you share the PropertyGuru or 99.co link, or the listing name/address? I’ll pull it up for you.";
+        const reply = "Could you share the PropertyGuru or 99.co link, or the listing name/address? I'll pull it up for you.";
         return { reply };
       }
       try {
         const r = await addPropertyFromUrl(url, state.userId);
-        const reply = await leadReply(state.history || [], state.message, { property: r.property, created: r.created });
+        
+        console.log('[detect_property] Property added:', r.property.title);
+        
+        // Simple acknowledgment - let the router decide next steps (screening, etc.)
+        const reply = `Got the link! I'm looking at ${r.property.title}.`;
+        
         return {
           propertyId: r.property.id,
           propertyTitle: r.property.title,
@@ -241,7 +276,8 @@ export function getApp() {
           reply,
         };
       } catch (e: any) {
-        const reply = await leadReply(state.history || [], state.message, { error: "property_load_failed" });
+        const reply = "Sorry, I couldn't load that property. Could you share another link?";
+        console.error('[detect_property] Error:', e);
         return { reply };
       }
     })
@@ -252,32 +288,33 @@ export function getApp() {
         propertyId: state.propertyId,
       }) || getDefaultAutomationConfig();
       
+      console.log('[prompt_screening] ===== DEBUG =====');
       console.log('[prompt_screening] Loaded config:', {
         hasScreeningSettings: !!config.phaseSettings?.screening,
         hasQuestions: !!config.phaseSettings?.screening?.questions,
-        questionCount: config.phaseSettings?.screening?.questions?.length || 0
+        questionCount: config.phaseSettings?.screening?.questions?.length || 0,
+        fullScreeningConfig: config.phaseSettings?.screening
       });
       
-      let fields = state.screeningFields;
+      let fields: Array<{ id: string; label: string; prompt?: string }> = [];
       let openingMessage = "Great! Let me ask you a few quick questions.";
       
       // Use custom questions from config if available
       if (config.phaseSettings?.screening?.questions && config.phaseSettings.screening.questions.length > 0) {
         fields = config.phaseSettings.screening.questions.map((q: any) => ({
-          id: q.label.toLowerCase().replace(/\s+/g, '_'),
+          id: q.id || q.label.toLowerCase().replace(/\s+/g, '_'),
           label: q.label,
-          prompt: q.prompt
+          prompt: q.prompt || q.label
         }));
+        
         if (config.phaseSettings.screening.openingMessage) {
           openingMessage = config.phaseSettings.screening.openingMessage;
         }
-        console.log('[prompt_screening] Using custom questions:', fields);
+        
+        console.log('[prompt_screening] ✅ Using custom questions from config:', fields);
       } else {
-        console.log('[prompt_screening] No custom questions, using defaults');
-      }
-      
-      // Fall back to defaults if no custom questions
-      if (!fields || fields.length === 0) {
+        console.log('[prompt_screening] ⚠️ No custom questions found, loading defaults');
+        // Fall back to defaults
         fields = await getDefaultScreeningFields(state.userId);
       }
       
@@ -288,43 +325,116 @@ export function getApp() {
       
       const reply = `${openingMessage}\n\n${questionsList}`;
       
-      console.log('[prompt_screening] Final reply preview:', reply.substring(0, 200));
+      console.log('[prompt_screening] ===== FINAL OUTPUT =====');
+      console.log('[prompt_screening] Opening:', openingMessage);
+      console.log('[prompt_screening] Questions:', questionsList);
+      console.log('[prompt_screening] Full reply:', reply);
       
       return { screeningFields: fields, screeningComplete: false, reply };
     })
     .addNode("capture_screening_answers", async (state: z.infer<typeof LeadState>) => {
-      const fields = state.screeningFields || (await getDefaultScreeningFields(state.userId));
+      // ALWAYS reload config fresh to get latest questions
+      let fields: Array<{ id: string; label: string; prompt?: string }> = [];
+      
+      if (state.screeningFields && state.screeningFields.length > 0) {
+        // Use fields from state if already set
+        fields = state.screeningFields;
+      } else {
+        // Load from bot config (same logic as prompt_screening)
+        const config = await loadAutomationConfig(state.userId, {
+          clientId: state.clientId,
+          propertyId: state.propertyId,
+        }) || getDefaultAutomationConfig();
+        
+        if (config.phaseSettings?.screening?.questions && config.phaseSettings.screening.questions.length > 0) {
+          fields = config.phaseSettings.screening.questions.map((q: any) => ({
+            id: q.id || q.label.toLowerCase().replace(/\s+/g, '_'),
+            label: q.label,
+            prompt: q.prompt || q.label
+          }));
+          console.log('[capture_screening_answers] ✅ Loaded questions from bot config:', fields.length);
+        } else {
+          // Fall back to defaults
+          fields = await getDefaultScreeningFields(state.userId);
+          console.log('[capture_screening_answers] ⚠️ Using default screening fields');
+        }
+      }
+      
       const prev = state.screeningAnswers || {};
       const answers = await extractScreeningAnswers(state.history || [], state.message, fields);
       const merged = { ...prev, ...answers };
       
+      console.log('[capture_screening_answers] Extracted answers:', answers);
+      console.log('[capture_screening_answers] Merged answers:', merged);
+      
       // Determine remaining unanswered fields
-      const remaining = fields.filter((f) => !merged[f.id]);
+      // Check both id and label since answers can be keyed by either
+      const remaining = fields.filter((f) => {
+        const hasAnswerById = merged[f.id] && merged[f.id] !== 'not specified';
+        const hasAnswerByLabel = merged[f.label] && merged[f.label] !== 'not specified';
+        return !hasAnswerById && !hasAnswerByLabel;
+      });
+      
+      console.log('[capture_screening_answers] Remaining fields:', remaining);
       
       if (remaining.length > 0) {
-        // Ask for remaining answers
-        const reply = await leadReply(state.history || [], state.message, { 
-          remainingFields: remaining,
-          partialAnswers: merged,
-          propertyTitle: state.propertyTitle 
+        // DON'T use LLM - use exact configured question prompts!
+        const questionsList = remaining.map((f: any, idx: number) => 
+          `${idx + 1}) ${f.prompt || f.label}`
+        ).join('\n');
+        
+        // Build reply with answered values acknowledgment + remaining questions
+        const acknowledgedFields = fields.filter((f) => {
+          const hasAnswerById = merged[f.id] && merged[f.id] !== 'not specified';
+          const hasAnswerByLabel = merged[f.label] && merged[f.label] !== 'not specified';
+          return hasAnswerById || hasAnswerByLabel;
         });
+        
+        let reply = '';
+        
+        if (acknowledgedFields.length > 0) {
+          const acks = acknowledgedFields.map(f => {
+            const answer = merged[f.id] || merged[f.label];
+            return `${f.label}: ${answer}`;
+          }).join(', ');
+          reply = `Got it! (${acks})\n\nJust a few more questions:\n\n${questionsList}`;
+        } else {
+          reply = `Thanks! Please answer these questions:\n\n${questionsList}`;
+        }
+        
+        console.log('[capture_screening_answers] Asking remaining questions:', reply);
+        console.log('[capture_screening_answers] Remaining count:', remaining.length);
+        
         return { screeningFields: fields, screeningAnswers: merged, screeningComplete: false, reply };
       }
       
       // All screening questions answered - mark as complete
-      const reply = await leadReply(state.history || [], state.message, { 
-        screeningComplete: true,
-        allAnswers: merged,
-        propertyTitle: state.propertyTitle
-      });
+      console.log('[capture_screening_answers] 🎉 ALL QUESTIONS ANSWERED! Marking screening complete');
+      
+      const reply = "Perfect! Thanks for providing all the information. How can I help you with this property?";
+      
       return { screeningAnswers: merged, screeningComplete: true, reply };
     })
     .addNode("propose_viewing", async (state: z.infer<typeof LeadState>) => {
+      const config = state.automationConfig || getDefaultAutomationConfig();
       const slots = nextWeekendSlots();
-      const reply = await leadReply(state.history || [], state.message, { offeredSlots: slots, propertyTitle: state.propertyTitle });
+      
+      // Use custom proposal message from config or generate via LLM
+      const customMessage = config.phaseSettings?.viewing?.proposalMessage;
+      let reply: string;
+      
+      if (customMessage) {
+        // Use custom message with slot placeholders
+        reply = `${customMessage}\n\nAvailable slots:\n• ${slots[0]}\n• ${slots[1]}`;
+      } else {
+        // Generate reply via LLM
+        reply = await leadReply(state.history || [], state.message, { offeredSlots: slots, propertyTitle: state.propertyTitle });
+      }
+      
       return { offeredSlots: slots, reply };
     })
     .addNode("book_viewing", async (state: z.infer<typeof LeadState>) => {
+      const config = state.automationConfig || getDefaultAutomationConfig();
       const text = state.message.toLowerCase();
       const slots = state.offeredSlots || nextWeekendSlots();
       const pick = slots.find((s) => text.includes(s.split(" ")[0].toLowerCase()) || text.includes(s.toLowerCase()));
@@ -345,7 +455,10 @@ export function getApp() {
       else if (is11am) date.setHours(11, 0, 0, 0);
       else date.setHours(15, 0, 0, 0);
       const start = date.toISOString();
-      const end = new Date(date.getTime() + 45 * 60 * 1000).toISOString();
+      
+      // Use custom duration from config or default 45 mins
+      const durationMinutes = parseInt(config.phaseSettings?.viewing?.defaultDuration || '45');
+      const end = new Date(date.getTime() + durationMinutes * 60 * 1000).toISOString();
 
       try {
         await createAppointment(state.userId, {
@@ -355,7 +468,16 @@ export function getApp() {
         });
       } catch {}
 
-      const reply = await leadReply(state.history || [], state.message, { booked: { when: chosen, start, end }, propertyTitle: state.propertyTitle });
+      // Use custom confirmation message from config or generate via LLM
+      const customMessage = config.phaseSettings?.viewing?.confirmationMessage;
+      let reply: string;
+      
+      if (customMessage) {
+        reply = customMessage.replace('{slot}', chosen);
+      } else {
+        reply = await leadReply(state.history || [], state.message, { booked: { when: chosen, start, end }, propertyTitle: state.propertyTitle });
+      }
+      
       return { reply };
     })
     .addNode("fallback", async (state: z.infer<typeof LeadState>) => {
@@ -365,14 +487,13 @@ export function getApp() {
         propertyId: state.propertyId,
       }) || getDefaultAutomationConfig();
       
-      const messages = [
-        "Thanks for the message! I'll have an agent follow up shortly. If you have a specific listing link, please share it so I can help faster.",
-        "I've noted your inquiry. A human agent will get back to you soon to assist further.",
-        "Your message has been received! Our team will reach out to you shortly.",
-      ];
+      // Use custom fallback message from config or default
+      const fallbackMessage = config.phaseSettings?.handoff?.fallbackMessage 
+        || config.phaseSettings?.handoff?.message
+        || "Thanks for the message! I'll have an agent follow up shortly. If you have a specific listing link, please share it so I can help faster.";
       
       return {
-        reply: messages[0],
+        reply: fallbackMessage,
       };
     })
     .addNode(
@@ -409,29 +530,59 @@ export function getApp() {
       // PRIORITY: Check if screening is automated
       const screeningAutomated = isPhaseAutomated(config, "screening");
       
+      console.log('[router] ===== SCREENING CHECK =====');
+      console.log('[router] screeningComplete:', state.screeningComplete);
+      console.log('[router] screeningAutomated:', screeningAutomated);
+      console.log('[router] hasPropertyId:', hasPropertyId);
+      console.log('[router] hasUrl:', hasUrl);
+      console.log('[router] screeningFields:', state.screeningFields);
+      console.log('[router] screeningAnswers:', state.screeningAnswers);
+      
+      // If screening is already complete, skip screening flow
+      if (state.screeningComplete) {
+        console.log('[router] ✅ Screening already complete - skipping to other phases');
+        // Continue to other checks below (Q&A, viewing, etc.)
+      }
+      
       // If screening is not complete and screening is automated, redirect to screening questions
-      if (!state.screeningComplete && screeningAutomated) {
+      else if (!state.screeningComplete && screeningAutomated) {
+        console.log('[router] ✅ Screening needed and automated');
+        
         // 🔒 Guard: don't start screening until we at least have a property in play
         // or a URL we can turn into one. Otherwise, ask for a link / basic details instead.
         if (!hasPropertyId && !hasUrl) {
+          console.log('[router] ⚠️ No property or URL - asking for link');
           // `respond` node will notice there's no property and politely ask for a link
           return new Command({ goto: "respond" }) as any;
         }
 
         // Check if we should proceed with screening
         if (!shouldProceedWithPhase(config, "screening", "beforeScreening")) {
+          console.log('[router] ⚠️ Screening requires approval - falling back');
           // Screening requires approval - hand off to human
           return new Command({ goto: "fallback" }) as any;
         }
         
-        // If we have screening fields set, we're in the middle of screening
+        // Check if we have actual partial answers (not just "not specified")
+        const hasRealAnswers = state.screeningAnswers && Object.values(state.screeningAnswers).some(
+          (val) => val && val !== 'not specified' && val.trim() !== ''
+        );
+        
+        // If we have screening fields AND real answers, we're in the middle of screening
         // Route to capture_screening_answers to process the user's response
-        if (state.screeningFields && state.screeningFields.length > 0) {
+        if (state.screeningFields && state.screeningFields.length > 0 && hasRealAnswers) {
+          console.log('[router] → Going to capture_screening_answers (mid-screening with', 
+            Object.keys(state.screeningAnswers || {}).length, 'answers)');
           return new Command({ goto: "capture_screening_answers" }) as any;
         }
-        // No screening fields set yet - start screening by asking first question
+        
+        // No screening started yet - ask all questions
+        console.log('[router] → Going to prompt_screening (start fresh screening)');
         return new Command({ goto: "prompt_screening" }) as any;
       }
+      
+      console.log('[router] ⚠️ Screening check failed - either complete or not automated');
+      console.log('[router] Moving to other checks...');
       
       // If screening is not automated but not complete, hand off to human
       if (!state.screeningComplete && !screeningAutomated) {
@@ -510,12 +661,25 @@ export function getApp() {
       "planner",
       (state: any) => {
         const p = (state as any).plan;
-        // If screening is not complete, always route to screening flow
+        
+        console.log('[planner conditional] screeningComplete:', state.screeningComplete);
+        console.log('[planner conditional] plan:', p);
+        
+        // If screening is not complete, ALWAYS route to router (not to tools)
+        // This ensures we go through screening before using any tools
         if (!state.screeningComplete) {
+          console.log('[planner conditional] → Routing to router (screening not complete)');
           return "router";
         }
+        
         // After screening is complete, allow tool usage
-        if (!p || p.action === "respond") return "router";
+        if (!p || p.action === "respond") {
+          console.log('[planner conditional] → Routing to router (no plan or respond action)');
+          return "router";
+        }
+        
+        console.log('[planner conditional] → Routing to tool:', p.tool);
+        
         switch (p.tool) {
           case "add_property_from_url":
             return "tool_add_property_from_url";
@@ -576,11 +740,21 @@ export async function runLeadAgent(
   const { userId, message, history } = LeadInputSchema.parse(input);
   const app: any = getApp();
   
+  console.log('[runLeadAgent] ===== ENTRY POINT =====');
+  console.log('[runLeadAgent] userId:', userId);
+  console.log('[runLeadAgent] message:', message);
+  console.log('[runLeadAgent] persistedState:', persistedState);
+  
   // Load automation config for this user/client/property
   const automationConfig = await loadAutomationConfig(userId, {
     clientId: persistedState?.clientId,
     propertyId: persistedState?.propertyId,
   }) || getDefaultAutomationConfig();
+  
+  console.log('[runLeadAgent] ===== LOADED CONFIG =====');
+  console.log('[runLeadAgent] automatedPhases:', automationConfig.automatedPhases);
+  console.log('[runLeadAgent] Has screening settings?', !!automationConfig.phaseSettings?.screening);
+  console.log('[runLeadAgent] Screening config:', JSON.stringify(automationConfig.phaseSettings?.screening, null, 2));
   
   // Merge persisted state into initial state
   const initialState: any = {
@@ -591,7 +765,16 @@ export async function runLeadAgent(
     ...(persistedState || {}),
   };
   
+  console.log('[runLeadAgent] ===== INITIAL STATE =====');
+  console.log('[runLeadAgent] initialState:', JSON.stringify(initialState, null, 2));
+  
   const result = await app.invoke(initialState);
+  
+  console.log('[runLeadAgent] ===== RESULT =====');
+  console.log('[runLeadAgent] reply:', result.reply);
+  console.log('[runLeadAgent] screeningFields:', result.screeningFields);
+  console.log('[runLeadAgent] screeningComplete:', result.screeningComplete);
+  
   return { 
     ok: true, 
     reply: result.reply || "",

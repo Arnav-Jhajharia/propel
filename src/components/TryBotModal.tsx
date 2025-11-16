@@ -4,7 +4,8 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { X, Send } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { X, Send, User, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 type Message = {
@@ -13,11 +14,28 @@ type Message = {
   text: string;
 };
 
+type Lead = {
+  id: string;
+  name: string;
+  phone: string;
+  avatar: string;
+};
+
+// Simulated demo leads
+const DEMO_LEADS: Lead[] = [
+  { id: '1', name: 'Sarah Chen', phone: '+65-9123-4567', avatar: '👩‍💼' },
+  { id: '2', name: 'John Tan', phone: '+65-8234-5678', avatar: '👨‍💼' },
+  { id: '3', name: 'Maria Santos', phone: '+65-9345-6789', avatar: '👩' },
+  { id: '4', name: 'David Lee', phone: '+65-8456-7890', avatar: '👨' },
+  { id: '5', name: 'Emma Wong', phone: '+65-9567-8901', avatar: '👩‍🎓' },
+];
+
 type TryBotModalProps = {
   onClose: () => void;
 };
 
 export function TryBotModal({ onClose }: TryBotModalProps) {
+  const [selectedLead, setSelectedLead] = useState<Lead>(DEMO_LEADS[0]);
   const [messages, setMessages] = useState<Message[]>([
     { id: '1', role: 'bot', text: 'Hi! I\'m your property assistant. How can I help you today?' }
   ]);
@@ -49,14 +67,14 @@ export function TryBotModal({ onClose }: TryBotModalProps) {
           text: msg.text
         }));
 
-      // Call the real LangGraph agent
+      // Call the real LangGraph agent with the selected lead's phone
       const response = await fetch('/api/lead-agent', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           message: userMessage,
           history: history,
-          clientPhone: 'demo-test-client'
+          clientPhone: selectedLead.phone
         })
       });
 
@@ -89,18 +107,85 @@ export function TryBotModal({ onClose }: TryBotModalProps) {
     }
   };
 
+  const handleLeadChange = (leadId: string) => {
+    const newLead = DEMO_LEADS.find(l => l.id === leadId);
+    if (newLead) {
+      setSelectedLead(newLead);
+      // Reset messages to greeting when switching leads
+      setMessages([
+        { id: '1', role: 'bot', text: 'Hi! I\'m your property assistant. How can I help you today?' }
+      ]);
+    }
+  };
+
+  const handleClearChat = async () => {
+    // Clear the conversation for this lead
+    await fetch('/api/clear-bot-state', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ clientPhone: selectedLead.phone })
+    });
+    
+    // Reset UI messages
+    setMessages([
+      { id: '1', role: 'bot', text: 'Hi! I\'m your property assistant. How can I help you today?' }
+    ]);
+  };
+
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-background rounded-xl shadow-2xl w-full max-w-lg h-[600px] flex flex-col">
+      <div className="bg-background rounded-xl shadow-2xl w-full max-w-lg h-[650px] flex flex-col">
         {/* Header */}
-        <div className="p-4 border-b flex items-center justify-between">
-          <div>
-            <h3 className="font-semibold text-lg">Try Your Bot</h3>
-            <p className="text-xs text-muted-foreground mt-0.5">Test the current configuration</p>
+        <div className="p-4 border-b space-y-3">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="font-semibold text-lg">Try Your Bot</h3>
+              <p className="text-xs text-muted-foreground mt-0.5">Test with different simulated leads</p>
+            </div>
+            <Button variant="ghost" size="icon" onClick={onClose}>
+              <X className="w-4 h-4" />
+            </Button>
           </div>
-          <Button variant="ghost" size="icon" onClick={onClose}>
-            <X className="w-4 h-4" />
-          </Button>
+
+          {/* Lead Selector */}
+          <div className="flex items-center gap-2">
+            <div className="flex-1">
+              <Select value={selectedLead.id} onValueChange={handleLeadChange}>
+                <SelectTrigger className="w-full">
+                  <SelectValue>
+                    <div className="flex items-center gap-2">
+                      <span className="text-lg">{selectedLead.avatar}</span>
+                      <div className="text-left">
+                        <div className="font-medium text-sm">{selectedLead.name}</div>
+                        <div className="text-xs text-muted-foreground">{selectedLead.phone}</div>
+                      </div>
+                    </div>
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  {DEMO_LEADS.map((lead) => (
+                    <SelectItem key={lead.id} value={lead.id}>
+                      <div className="flex items-center gap-2">
+                        <span className="text-lg">{lead.avatar}</span>
+                        <div>
+                          <div className="font-medium">{lead.name}</div>
+                          <div className="text-xs text-muted-foreground">{lead.phone}</div>
+                        </div>
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <Button 
+              variant="outline" 
+              size="icon"
+              onClick={handleClearChat}
+              title="Clear this lead's conversation"
+            >
+              <Trash2 className="w-4 h-4" />
+            </Button>
+          </div>
         </div>
 
         {/* Messages */}

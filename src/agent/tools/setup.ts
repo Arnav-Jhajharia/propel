@@ -83,10 +83,10 @@ export async function saveQuestionnaire(userId: string, fields: QuestionnaireFie
   if (existing.length > 0) {
     await db
       .update(screeningTemplates)
-      .set({ name, fields: JSON.stringify(fields), isDefault: 1 })
+      .set({ name, fields: JSON.stringify(fields), isDefault: true })
       .where(eq(screeningTemplates.id, existing[0].id));
   } else {
-    await db.insert(screeningTemplates).values({ userId, name, fields: JSON.stringify(fields), isDefault: 1 });
+    await db.insert(screeningTemplates).values({ userId, name, fields: JSON.stringify(fields), isDefault: true });
   }
 }
 

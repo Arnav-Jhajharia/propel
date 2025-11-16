@@ -60,7 +60,7 @@ export async function addPropertyFromUrl(propertyUrl: string, userId: string): P
   }
 
   // Validate availableFrom - convert invalid dates to null
-  let availableFrom = scraped.availableFrom;
+  let availableFrom: string | null = scraped.availableFrom;
   if (availableFrom === "TBD" || !availableFrom || availableFrom === "undefined") {
     availableFrom = null;
   }

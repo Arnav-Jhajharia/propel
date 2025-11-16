@@ -63,7 +63,7 @@ export async function POST(req: Request) {
     const HERO = "https://sg1-cdn.pgimgs.com/listing/60178874/UPHO.157261486.V800/Normanton-Park-Buona-Vista-West-Coast-Clementi-New-Town-Singapore.jpg";
     
     // Validate availableFrom - convert invalid dates to null
-    let availableFrom = scrapedProperty.availableFrom;
+    let availableFrom: string | null = scrapedProperty.availableFrom;
     if (availableFrom === "TBD" || !availableFrom || availableFrom === "undefined") {
       availableFrom = null;
     }

@@ -1,21 +1,53 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Shield } from "lucide-react";
 
-export function ApprovalsConfiguration() {
-  const [requireApprovalFor, setRequireApprovalFor] = useState<string[]>(['viewing_booking']);
-  const [notifyMethod, setNotifyMethod] = useState('email');
+type ApprovalsConfigurationProps = {
+  initialConfig?: any;
+  onConfigChange?: (config: any) => void;
+};
+
+export function ApprovalsConfiguration({ initialConfig, onConfigChange }: ApprovalsConfigurationProps = {}) {
+  const [requireApprovalFor, setRequireApprovalFor] = useState<string[]>(initialConfig?.requireApprovalFor || ['viewing_booking']);
+  const [notifyMethod, setNotifyMethod] = useState(initialConfig?.notifyMethod || 'email');
+
+  // Send config on mount
+  useEffect(() => {
+    if (onConfigChange) {
+      onConfigChange({
+        beforeScreening: requireApprovalFor.includes('screening'),
+        beforePropertyAdd: requireApprovalFor.includes('property_add'),
+        beforeViewingProposal: requireApprovalFor.includes('viewing_proposal'),
+        beforeViewingBooking: requireApprovalFor.includes('viewing_booking'),
+        notifyMethod
+      });
+    }
+  }, []); // Only on mount
+
+  // Notify parent when config changes
+  const notifyChange = (newRequireApprovalFor?: string[], newNotifyMethod?: string) => {
+    const approvals = newRequireApprovalFor || requireApprovalFor;
+    if (onConfigChange) {
+      onConfigChange({
+        beforeScreening: approvals.includes('screening'),
+        beforePropertyAdd: approvals.includes('property_add'),
+        beforeViewingProposal: approvals.includes('viewing_proposal'),
+        beforeViewingBooking: approvals.includes('viewing_booking'),
+        notifyMethod: newNotifyMethod || notifyMethod
+      });
+    }
+  };
 
   const toggleApproval = (phase: string) => {
-    if (requireApprovalFor.includes(phase)) {
-      setRequireApprovalFor(requireApprovalFor.filter(p => p !== phase));
-    } else {
-      setRequireApprovalFor([...requireApprovalFor, phase]);
-    }
+    const newRequireApprovalFor = requireApprovalFor.includes(phase)
+      ? requireApprovalFor.filter(p => p !== phase)
+      : [...requireApprovalFor, phase];
+    setRequireApprovalFor(newRequireApprovalFor);
+    notifyChange(newRequireApprovalFor);
   };
 
   const phases = [
@@ -61,7 +93,10 @@ export function ApprovalsConfiguration() {
       <div className="space-y-3">
         <Label className="text-sm font-medium">Notification Method</Label>
         <p className="text-xs text-muted-foreground mb-2">How to notify you when approval is needed</p>
-        <Select value={notifyMethod} onValueChange={setNotifyMethod}>
+        <Select value={notifyMethod} onValueChange={(value) => {
+          setNotifyMethod(value);
+          notifyChange(undefined, value);
+        }}>
           <SelectTrigger className="h-9">
             <SelectValue />
           </SelectTrigger>

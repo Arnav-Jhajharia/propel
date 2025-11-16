@@ -1,19 +1,55 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
-export function ViewingConfiguration() {
-  const [autoPropose, setAutoPropose] = useState(true);
-  const [autoBook, setAutoBook] = useState(false);
-  const [proposalMessage, setProposalMessage] = useState("Would you like to schedule a viewing? I have slots available.");
-  const [confirmationMessage, setConfirmationMessage] = useState("Perfect! Your viewing is confirmed for {slot}. See you then!");
-  const [defaultDuration, setDefaultDuration] = useState('45');
-  const [availableDays, setAvailableDays] = useState(['Saturday', 'Sunday']);
+type ViewingConfigurationProps = {
+  initialConfig?: any;
+  onConfigChange?: (config: any) => void;
+};
+
+export function ViewingConfiguration({ initialConfig, onConfigChange }: ViewingConfigurationProps = {}) {
+  const [autoPropose, setAutoPropose] = useState(initialConfig?.autoPropose ?? true);
+  const [autoBook, setAutoBook] = useState(initialConfig?.autoBook ?? false);
+  const [proposalMessage, setProposalMessage] = useState(initialConfig?.proposalMessage || "Would you like to schedule a viewing? I have slots available.");
+  const [confirmationMessage, setConfirmationMessage] = useState(initialConfig?.confirmationMessage || "Perfect! Your viewing is confirmed for {slot}. See you then!");
+  const [defaultDuration, setDefaultDuration] = useState(initialConfig?.defaultDuration || '45');
+  const [availableDays, setAvailableDays] = useState<string[]>(initialConfig?.availableDays || ['Saturday', 'Sunday']);
+
+  // Send config on mount
+  useEffect(() => {
+    if (onConfigChange) {
+      onConfigChange({
+        autoPropose,
+        autoBook,
+        proposalMessage,
+        confirmationMessage,
+        defaultDuration,
+        availableDays,
+        triggerAfterQA: true
+      });
+    }
+  }, []); // Only on mount
+
+  // Notify parent when config changes
+  const notifyChange = (updates: Partial<any>) => {
+    if (onConfigChange) {
+      onConfigChange({
+        autoPropose,
+        autoBook,
+        proposalMessage,
+        confirmationMessage,
+        defaultDuration,
+        availableDays,
+        triggerAfterQA: true,
+        ...updates
+      });
+    }
+  };
 
   return (
     <div className="space-y-8">
@@ -24,7 +60,10 @@ export function ViewingConfiguration() {
             <Label className="text-sm font-medium">Auto-propose Viewings</Label>
             <p className="text-xs text-muted-foreground mt-0.5">Automatically offer viewing slots after Q&A</p>
           </div>
-          <Switch checked={autoPropose} onCheckedChange={setAutoPropose} />
+          <Switch checked={autoPropose} onCheckedChange={(checked) => {
+            setAutoPropose(checked);
+            notifyChange({ autoPropose: checked });
+          }} />
         </div>
 
         <div className="flex items-center justify-between p-4 rounded-lg border bg-card">
@@ -32,7 +71,10 @@ export function ViewingConfiguration() {
             <Label className="text-sm font-medium">Auto-book Viewings</Label>
             <p className="text-xs text-muted-foreground mt-0.5">Automatically confirm bookings without approval</p>
           </div>
-          <Switch checked={autoBook} onCheckedChange={setAutoBook} />
+          <Switch checked={autoBook} onCheckedChange={(checked) => {
+            setAutoBook(checked);
+            notifyChange({ autoBook: checked });
+          }} />
         </div>
       </div>
 
@@ -41,7 +83,10 @@ export function ViewingConfiguration() {
         <Label className="text-sm font-medium">Viewing Proposal Message</Label>
         <Textarea
           value={proposalMessage}
-          onChange={(e) => setProposalMessage(e.target.value)}
+          onChange={(e) => {
+            setProposalMessage(e.target.value);
+            notifyChange({ proposalMessage: e.target.value });
+          }}
           rows={2}
           className="resize-none"
         />
@@ -52,7 +97,10 @@ export function ViewingConfiguration() {
         <Label className="text-sm font-medium">Booking Confirmation Message</Label>
         <Textarea
           value={confirmationMessage}
-          onChange={(e) => setConfirmationMessage(e.target.value)}
+          onChange={(e) => {
+            setConfirmationMessage(e.target.value);
+            notifyChange({ confirmationMessage: e.target.value });
+          }}
           rows={2}
           className="resize-none"
           placeholder="Use {slot} for the time slot"
@@ -66,7 +114,10 @@ export function ViewingConfiguration() {
           <Input
             type="number"
             value={defaultDuration}
-            onChange={(e) => setDefaultDuration(e.target.value)}
+            onChange={(e) => {
+              setDefaultDuration(e.target.value);
+              notifyChange({ defaultDuration: e.target.value });
+            }}
             className="h-9"
           />
         </div>

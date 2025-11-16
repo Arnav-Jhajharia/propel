@@ -35,14 +35,23 @@ export const AutomationConfigSchema = z.object({
     beforePropertyAdd: z.boolean().default(false),
     beforeViewingProposal: z.boolean().default(false),
     beforeViewingBooking: z.boolean().default(false),
-  }).default({}),
+  }).optional().default({
+    beforeScreening: false,
+    beforePropertyAdd: false,
+    beforeViewingProposal: false,
+    beforeViewingBooking: false,
+  }),
 
   // Behavior customizations
   behavior: z.object({
     tone: z.enum(["professional", "friendly", "casual"]).default("professional"),
     responseSpeed: z.enum(["instant", "delayed", "human_like"]).default("instant"),
     autoFollowUp: z.boolean().default(true),
-  }).default({}),
+  }).default({
+    tone: "professional",
+    responseSpeed: "instant",
+    autoFollowUp: true,
+  }),
 
   // Phase-specific settings
   phaseSettings: z.object({

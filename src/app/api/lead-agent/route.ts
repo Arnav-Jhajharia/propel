@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { runLeadAgent } from "@/agent/leadGraph";
+import { runLeadAgent, clearCache } from "@/agent/leadGraph";
 import { getSession } from "@/lib/simple-auth";
 import { loadLeadState, saveLeadState } from "@/lib/lead-state-persistence";
 import { auth as clerkAuth } from "@clerk/nextjs/server";
@@ -23,6 +23,11 @@ export async function POST(req: Request) {
   try {
     const json = await req.json();
     const { message, history, clientPhone } = BodySchema.parse(json);
+    
+    // FORCE GRAPH RECOMPILE IN DEVELOPMENT
+    if (process.env.NODE_ENV === 'development') {
+      clearCache();
+    }
 
     // Identify user via Clerk or simple auth; fallback anonymous
     let userId = "anonymous";
@@ -48,12 +53,13 @@ export async function POST(req: Request) {
     // Load persisted state for this conversation
     const persistedState = await loadLeadState(userId, testPhone);
 
-    console.log("[lead-agent] Calling agent with:", {
-      userId,
-      messagePreview: message.substring(0, 50),
-      hasPersistedState: !!persistedState,
-      persistedState
-    });
+    console.log("[lead-agent] ===== REQUEST DEBUG =====");
+    console.log("[lead-agent] userId:", userId);
+    console.log("[lead-agent] testPhone:", testPhone);
+    console.log("[lead-agent] messagePreview:", message.substring(0, 50));
+    console.log("[lead-agent] hasPersistedState:", !!persistedState);
+    console.log("[lead-agent] persistedState:", JSON.stringify(persistedState, null, 2));
+    console.log("[lead-agent] history length:", history?.length || 0);
 
     // Call lead agent with persisted state
     const result = await runLeadAgent(
@@ -61,12 +67,11 @@ export async function POST(req: Request) {
       persistedState || undefined
     );
 
-    console.log("[lead-agent] Agent result:", {
-      ok: result.ok,
-      replyPreview: result.reply?.substring(0, 100),
-      hasState: !!result.state,
-      state: result.state
-    });
+    console.log("[lead-agent] ===== RESPONSE DEBUG =====");
+    console.log("[lead-agent] ok:", result.ok);
+    console.log("[lead-agent] reply:", result.reply);
+    console.log("[lead-agent] hasState:", !!result.state);
+    console.log("[lead-agent] state:", JSON.stringify(result.state, null, 2));
 
     // Save updated state back to database
     if (result.state) {

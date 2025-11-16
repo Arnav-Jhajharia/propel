@@ -1,14 +1,42 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { AlertCircle } from "lucide-react";
 
-export function FallbackConfiguration() {
-  const [fallbackMessage, setFallbackMessage] = useState("Thanks for your message! I'll have one of our agents follow up with you shortly.");
-  const [noPropertyMessage, setNoPropertyMessage] = useState("Could you share the PropertyGuru or 99.co link? Or tell me the area, bedrooms and budget so I can suggest options.");
-  const [errorMessage, setErrorMessage] = useState("I'm having trouble with that right now. Let me connect you with an agent who can help.");
+type FallbackConfigurationProps = {
+  initialConfig?: any;
+  onConfigChange?: (config: any) => void;
+};
+
+export function FallbackConfiguration({ initialConfig, onConfigChange }: FallbackConfigurationProps = {}) {
+  const [fallbackMessage, setFallbackMessage] = useState(initialConfig?.fallbackMessage || "Thanks for your message! I'll have one of our agents follow up with you shortly.");
+  const [noPropertyMessage, setNoPropertyMessage] = useState(initialConfig?.noPropertyMessage || "Could you share the PropertyGuru or 99.co link? Or tell me the area, bedrooms and budget so I can suggest options.");
+  const [errorMessage, setErrorMessage] = useState(initialConfig?.errorMessage || "I'm having trouble with that right now. Let me connect you with an agent who can help.");
+
+  // Send config on mount
+  useEffect(() => {
+    if (onConfigChange) {
+      onConfigChange({
+        fallbackMessage,
+        noPropertyMessage,
+        errorMessage
+      });
+    }
+  }, []); // Only on mount
+
+  // Notify parent when config changes
+  const notifyChange = (updates: Partial<any>) => {
+    if (onConfigChange) {
+      onConfigChange({
+        fallbackMessage,
+        noPropertyMessage,
+        errorMessage,
+        ...updates
+      });
+    }
+  };
 
   return (
     <div className="space-y-8">
@@ -28,7 +56,10 @@ export function FallbackConfiguration() {
         <p className="text-xs text-muted-foreground">When bot can't handle the request or phase is disabled</p>
         <Textarea
           value={fallbackMessage}
-          onChange={(e) => setFallbackMessage(e.target.value)}
+          onChange={(e) => {
+            setFallbackMessage(e.target.value);
+            notifyChange({ fallbackMessage: e.target.value });
+          }}
           rows={3}
           className="resize-none"
         />
@@ -40,7 +71,10 @@ export function FallbackConfiguration() {
         <p className="text-xs text-muted-foreground">When user asks questions but hasn't shared a property link yet</p>
         <Textarea
           value={noPropertyMessage}
-          onChange={(e) => setNoPropertyMessage(e.target.value)}
+          onChange={(e) => {
+            setNoPropertyMessage(e.target.value);
+            notifyChange({ noPropertyMessage: e.target.value });
+          }}
           rows={2}
           className="resize-none"
         />
@@ -52,7 +86,10 @@ export function FallbackConfiguration() {
         <p className="text-xs text-muted-foreground">When the bot encounters a technical error</p>
         <Textarea
           value={errorMessage}
-          onChange={(e) => setErrorMessage(e.target.value)}
+          onChange={(e) => {
+            setErrorMessage(e.target.value);
+            notifyChange({ errorMessage: e.target.value });
+          }}
           rows={2}
           className="resize-none"
         />

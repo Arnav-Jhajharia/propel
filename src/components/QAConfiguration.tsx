@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -24,25 +24,58 @@ const DEFAULT_FACTS: PropertyFact[] = [
   { id: '6', keyword: 'available, move-in', response: 'Available from ${availableFrom}' },
 ];
 
-export function QAConfiguration() {
-  const [facts, setFacts] = useState<PropertyFact[]>(DEFAULT_FACTS);
-  const [autoDetectProperty, setAutoDetectProperty] = useState(true);
-  const [fallbackMessage, setFallbackMessage] = useState("Let me check on that for you. Could you be more specific?");
+type QAConfigurationProps = {
+  initialConfig?: any;
+  onConfigChange?: (config: any) => void;
+};
+
+export function QAConfiguration({ initialConfig, onConfigChange }: QAConfigurationProps = {}) {
+  const [facts, setFacts] = useState<PropertyFact[]>(initialConfig?.facts || DEFAULT_FACTS);
+  const [autoDetectProperty, setAutoDetectProperty] = useState(initialConfig?.autoDetectProperty ?? true);
+  const [fallbackMessage, setFallbackMessage] = useState(initialConfig?.fallbackMessage || "Let me check on that for you. Could you be more specific?");
+
+  // Send config on mount
+  useEffect(() => {
+    if (onConfigChange) {
+      onConfigChange({
+        autoDetectProperty,
+        facts,
+        fallbackMessage
+      });
+    }
+  }, []); // Only on mount
+
+  // Notify parent when config changes
+  const notifyChange = (newFacts?: PropertyFact[], newAutoDetect?: boolean, newFallback?: string) => {
+    if (onConfigChange) {
+      onConfigChange({
+        autoDetectProperty: newAutoDetect !== undefined ? newAutoDetect : autoDetectProperty,
+        facts: newFacts || facts,
+        fallbackMessage: newFallback || fallbackMessage
+      });
+    }
+  };
 
   const addFact = () => {
-    setFacts([...facts, {
+    const newFacts = [...facts, {
       id: Date.now().toString(),
       keyword: '',
       response: ''
-    }]);
+    }];
+    setFacts(newFacts);
+    notifyChange(newFacts);
   };
 
   const updateFact = (id: string, field: 'keyword' | 'response', value: string) => {
-    setFacts(facts.map(f => f.id === id ? { ...f, [field]: value } : f));
+    const updated = facts.map(f => f.id === id ? { ...f, [field]: value } : f);
+    setFacts(updated);
+    notifyChange(updated);
   };
 
   const removeFact = (id: string) => {
-    setFacts(facts.filter(f => f.id !== id));
+    const filtered = facts.filter(f => f.id !== id);
+    setFacts(filtered);
+    notifyChange(filtered);
   };
 
   return (
@@ -53,7 +86,10 @@ export function QAConfiguration() {
           <Label className="text-sm font-medium">Auto-detect Property from URL</Label>
           <p className="text-xs text-muted-foreground mt-0.5">Automatically add properties when user shares PropertyGuru/99.co links</p>
         </div>
-        <Switch checked={autoDetectProperty} onCheckedChange={setAutoDetectProperty} />
+        <Switch checked={autoDetectProperty} onCheckedChange={(checked) => {
+          setAutoDetectProperty(checked);
+          notifyChange(undefined, checked);
+        }} />
       </div>
 
       {/* Property Facts */}
@@ -108,7 +144,10 @@ export function QAConfiguration() {
         <p className="text-xs text-muted-foreground">When bot doesn't know the answer</p>
         <Textarea
           value={fallbackMessage}
-          onChange={(e) => setFallbackMessage(e.target.value)}
+          onChange={(e) => {
+            setFallbackMessage(e.target.value);
+            notifyChange(undefined, undefined, e.target.value);
+          }}
           rows={2}
           className="resize-none"
         />

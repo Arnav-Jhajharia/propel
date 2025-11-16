@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -20,26 +20,64 @@ const DEFAULT_FOLLOWUPS: FollowUpMessage[] = [
   { id: '3', delay: '168', message: 'This is our final follow-up. Let us know if you\'re interested!' },
 ];
 
-export function FollowUpConfiguration() {
-  const [enabled, setEnabled] = useState(true);
-  const [maxFollowUps, setMaxFollowUps] = useState('3');
-  const [followUps, setFollowUps] = useState<FollowUpMessage[]>(DEFAULT_FOLLOWUPS);
-  const [fallbackMessage, setFallbackMessage] = useState("Thanks for getting back to us! An agent will reach out to you directly.");
+type FollowUpConfigurationProps = {
+  initialConfig?: any;
+  onConfigChange?: (config: any) => void;
+};
+
+export function FollowUpConfiguration({ initialConfig, onConfigChange }: FollowUpConfigurationProps = {}) {
+  const [enabled, setEnabled] = useState(initialConfig?.enabled ?? true);
+  const [maxFollowUps, setMaxFollowUps] = useState(initialConfig?.maxFollowUps || '3');
+  const [followUps, setFollowUps] = useState<FollowUpMessage[]>(initialConfig?.messages || DEFAULT_FOLLOWUPS);
+  const [fallbackMessage, setFallbackMessage] = useState(initialConfig?.fallbackMessage || "Thanks for getting back to us! An agent will reach out to you directly.");
+
+  // Send config on mount
+  useEffect(() => {
+    if (onConfigChange) {
+      onConfigChange({
+        enabled,
+        maxAttempts: parseInt(maxFollowUps) || 3,
+        delayHours: 24,
+        messages: followUps.map(f => ({ delay: parseInt(f.delay) || 24, text: f.message })),
+        fallbackMessage
+      });
+    }
+  }, []); // Only on mount
+
+  // Notify parent when config changes
+  const notifyChange = (updates: Partial<any>) => {
+    if (onConfigChange) {
+      onConfigChange({
+        enabled,
+        maxAttempts: parseInt(maxFollowUps) || 3,
+        delayHours: 24,
+        messages: followUps.map(f => ({ delay: parseInt(f.delay) || 24, text: f.message })),
+        fallbackMessage,
+        ...updates
+      });
+    }
+  };
 
   const addFollowUp = () => {
-    setFollowUps([...followUps, {
+    const newFollowUps = [...followUps, {
       id: Date.now().toString(),
       delay: '24',
       message: ''
-    }]);
+    }];
+    setFollowUps(newFollowUps);
+    notifyChange({ messages: newFollowUps.map(f => ({ delay: parseInt(f.delay) || 24, text: f.message })) });
   };
 
   const updateFollowUp = (id: string, field: 'delay' | 'message', value: string) => {
-    setFollowUps(followUps.map(f => f.id === id ? { ...f, [field]: value } : f));
+    const updated = followUps.map(f => f.id === id ? { ...f, [field]: value } : f);
+    setFollowUps(updated);
+    notifyChange({ messages: updated.map(f => ({ delay: parseInt(f.delay) || 24, text: f.message })) });
   };
 
   const removeFollowUp = (id: string) => {
-    setFollowUps(followUps.filter(f => f.id !== id));
+    const filtered = followUps.filter(f => f.id !== id);
+    setFollowUps(filtered);
+    notifyChange({ messages: filtered.map(f => ({ delay: parseInt(f.delay) || 24, text: f.message })) });
   };
 
   return (
@@ -50,7 +88,10 @@ export function FollowUpConfiguration() {
           <Label className="text-sm font-medium">Enable Automatic Follow-ups</Label>
           <p className="text-xs text-muted-foreground mt-0.5">Send automated messages to inactive leads</p>
         </div>
-        <Switch checked={enabled} onCheckedChange={setEnabled} />
+        <Switch checked={enabled} onCheckedChange={(checked) => {
+          setEnabled(checked);
+          notifyChange({ enabled: checked });
+        }} />
       </div>
 
       {enabled && (
@@ -61,7 +102,10 @@ export function FollowUpConfiguration() {
             <Input
               type="number"
               value={maxFollowUps}
-              onChange={(e) => setMaxFollowUps(e.target.value)}
+              onChange={(e) => {
+                setMaxFollowUps(e.target.value);
+                notifyChange({ maxAttempts: parseInt(e.target.value) || 3 });
+              }}
               className="h-9 w-32"
               min="1"
               max="5"
@@ -125,7 +169,10 @@ export function FollowUpConfiguration() {
             <p className="text-xs text-muted-foreground">When user responds after max follow-ups</p>
             <Textarea
               value={fallbackMessage}
-              onChange={(e) => setFallbackMessage(e.target.value)}
+              onChange={(e) => {
+                setFallbackMessage(e.target.value);
+                notifyChange({ fallbackMessage: e.target.value });
+              }}
               rows={2}
               className="resize-none"
             />

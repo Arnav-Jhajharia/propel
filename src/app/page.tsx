@@ -491,63 +491,71 @@ export default function DashboardPage() {
             {/* Pipeline Stage Breakdown */}
             <Card>
               <CardContent className="p-6">
-                <h2 className="font-semibold text-lg mb-6">Pipeline Stage Breakdown</h2>
+                <h2 className="font-semibold text-lg mb-4">Pipeline Stage Breakdown</h2>
                 {loading ? (
                   <div className="text-center py-8">
                     <div className="text-sm text-muted-foreground">Loading pipeline...</div>
                   </div>
                 ) : (
-                  <div className="space-y-8">
+                  <div className="space-y-6">
                     {/* Pipeline visualization */}
-                    <div className="relative">
+                    <div className="relative py-4">
                       {/* Pipeline line */}
-                      <div className="absolute top-6 left-0 right-0 h-0.5 bg-muted" />
+                      <div className="absolute top-8 left-[10%] right-[10%] h-1 bg-gradient-to-r from-orange-200 via-orange-300 via-orange-400 via-orange-500 to-orange-600 rounded-full" />
                       
                       {/* Pipeline stages */}
-                      <div className="relative flex justify-between items-start">
+                      <div className="relative flex justify-between items-start px-8">
                         {[
-                          { key: 'active', label: 'Inquiry', color: 'bg-blue-500' },
-                          { key: 'screening_sent', label: 'Screening', color: 'bg-purple-500' },
-                          { key: 'replied', label: 'Qualified', color: 'bg-yellow-500' },
-                          { key: 'viewing_scheduled', label: 'Viewing', color: 'bg-orange-500' },
-                          { key: 'converted', label: 'Converted', color: 'bg-green-500' },
+                          { key: 'active', label: 'Inquiry', color: 'bg-orange-300', ringColor: 'ring-orange-100' },
+                          { key: 'screening_sent', label: 'Screening', color: 'bg-orange-400', ringColor: 'ring-orange-200' },
+                          { key: 'replied', label: 'Qualified', color: 'bg-orange-500', ringColor: 'ring-orange-300' },
+                          { key: 'viewing_scheduled', label: 'Viewing', color: 'bg-orange-600', ringColor: 'ring-orange-400' },
+                          { key: 'converted', label: 'Converted', color: 'bg-orange-700', ringColor: 'ring-orange-500' },
                         ].map((stage, idx) => {
                           const prospectsInStage = pipelineProspects.filter(p => p.status === stage.key);
-                          const count = pipelineProspects.filter(p => p.status === stage.key).length;
+                          const count = prospectsInStage.length;
                           
                           return (
-                            <div key={stage.key} className="flex flex-col items-center" style={{ width: '18%' }}>
+                            <div key={stage.key} className="flex flex-col items-center" style={{ width: '16%' }}>
                               {/* Node */}
-                              <div className="relative z-10 mb-3">
-                                <div className={`w-12 h-12 rounded-full ${stage.color} flex items-center justify-center text-white font-bold shadow-lg`}>
-                                  {count}
+                              <div className="relative z-10 mb-2">
+                                <div className={`w-16 h-16 rounded-full ${stage.color} ${count > 0 ? `ring-4 ${stage.ringColor}` : ''} flex items-center justify-center text-white font-bold shadow-lg transition-all hover:scale-110`}>
+                                  <span className="text-xl">{count}</span>
                                 </div>
                               </div>
                               
                               {/* Stage label */}
-                              <div className="text-xs font-medium text-center mb-2">{stage.label}</div>
+                              <div className="text-sm font-semibold text-center mb-3">{stage.label}</div>
                               
                               {/* Top prospects in this stage */}
-                              <div className="w-full space-y-1">
-                                {prospectsInStage.slice(0, 2).map((prospect) => (
-                                  <div
-                                    key={prospect.id}
-                                    className="text-[10px] bg-muted/50 rounded px-2 py-1 text-center truncate cursor-pointer hover:bg-muted transition-colors"
-                                    onClick={() => router.push(`/clients/${prospect.clientId}`)}
-                                    title={`${prospect.clientName} - Score: ${prospect.score}`}
-                                  >
-                                    {prospect.clientName.split(' ')[0]}
-                                    <div className="text-[8px] text-muted-foreground">
-                                      {prospect.score}
+                              {count > 0 && (
+                                <div className="w-full space-y-1.5">
+                                  {prospectsInStage.slice(0, 2).map((prospect) => (
+                                    <div
+                                      key={prospect.id}
+                                      className="flex items-center gap-1.5 bg-card border rounded-md px-2 py-1.5 cursor-pointer hover:bg-accent hover:border-primary transition-all group"
+                                      onClick={() => router.push(`/clients/${prospect.clientId}`)}
+                                      title={`${prospect.clientName} - Score: ${prospect.score}`}
+                                    >
+                                      <div className="flex-1 min-w-0">
+                                        <div className="text-xs font-medium truncate group-hover:text-primary">
+                                          {prospect.clientName.split(' ')[0]}
+                                        </div>
+                                      </div>
+                                      <div className="flex-shrink-0">
+                                        <Badge variant="secondary" className="text-[10px] h-4 px-1">
+                                          {prospect.score}
+                                        </Badge>
+                                      </div>
                                     </div>
-                                  </div>
-                                ))}
-                                {prospectsInStage.length > 2 && (
-                                  <div className="text-[9px] text-muted-foreground text-center">
-                                    +{prospectsInStage.length - 2} more
-                                  </div>
-                                )}
-                              </div>
+                                  ))}
+                                  {prospectsInStage.length > 2 && (
+                                    <div className="text-xs text-muted-foreground text-center py-1">
+                                      +{prospectsInStage.length - 2} more
+                                    </div>
+                                  )}
+                                </div>
+                              )}
                             </div>
                           );
                         })}
@@ -555,17 +563,17 @@ export default function DashboardPage() {
                     </div>
 
                     {/* Summary stats */}
-                    <div className="grid grid-cols-5 gap-2 pt-4 border-t">
+                    <div className="grid grid-cols-5 gap-3 pt-4 border-t">
                       {[
-                        { key: 'active', label: 'Inquiry', count: pipelineProspects.filter(p => p.status === 'active').length },
-                        { key: 'screening_sent', label: 'Screening', count: pipelineProspects.filter(p => p.status === 'screening_sent').length },
-                        { key: 'replied', label: 'Qualified', count: pipelineProspects.filter(p => p.status === 'replied').length },
-                        { key: 'viewing_scheduled', label: 'Viewing', count: pipelineProspects.filter(p => p.status === 'viewing_scheduled').length },
-                        { key: 'converted', label: 'Converted', count: pipelineProspects.filter(p => p.status === 'converted').length },
+                        { key: 'active', label: 'Inquiry', count: pipelineProspects.filter(p => p.status === 'active').length, color: 'text-orange-400' },
+                        { key: 'screening_sent', label: 'Screening', count: pipelineProspects.filter(p => p.status === 'screening_sent').length, color: 'text-orange-500' },
+                        { key: 'replied', label: 'Qualified', count: pipelineProspects.filter(p => p.status === 'replied').length, color: 'text-orange-600' },
+                        { key: 'viewing_scheduled', label: 'Viewing', count: pipelineProspects.filter(p => p.status === 'viewing_scheduled').length, color: 'text-orange-700' },
+                        { key: 'converted', label: 'Converted', count: pipelineProspects.filter(p => p.status === 'converted').length, color: 'text-orange-800' },
                       ].map((stage) => (
                         <div key={stage.key} className="text-center">
-                          <div className="text-xl font-bold">{stage.count}</div>
-                          <div className="text-[10px] text-muted-foreground">{stage.label}</div>
+                          <div className={`text-2xl font-bold ${stage.color}`}>{stage.count}</div>
+                          <div className="text-xs text-muted-foreground mt-0.5">{stage.label}</div>
                         </div>
                       ))}
                     </div>

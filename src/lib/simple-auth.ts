@@ -1,5 +1,4 @@
-import { db } from './db';
-import { users, sessions } from './db/schema';
+import { db, users, sessions, accounts } from './db';
 import { eq } from 'drizzle-orm';
 import bcrypt from 'bcrypt';
 import { createId } from '@paralleldrive/cuid2';
@@ -8,7 +7,7 @@ export interface User {
   id: string;
   email: string;
   name: string;
-  role: string;
+  role: string | null;
 }
 
 export interface Session {
@@ -152,6 +151,3 @@ export async function signOut(token: string): Promise<void> {
     console.error('Sign out error:', error);
   }
 }
-
-// Import accounts table
-import { accounts } from './db/schema';

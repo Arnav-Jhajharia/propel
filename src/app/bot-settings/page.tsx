@@ -43,6 +43,11 @@ export default function BotSettingsPage() {
   
   // Store phase-specific configs (loaded from database)
   const [screeningConfig, setScreeningConfig] = useState<any>(null);
+  const [qaConfig, setQAConfig] = useState<any>(null);
+  const [viewingConfig, setViewingConfig] = useState<any>(null);
+  const [followUpConfig, setFollowUpConfig] = useState<any>(null);
+  const [approvalsConfig, setApprovalsConfig] = useState<any>(null);
+  const [fallbackConfig, setFallbackConfig] = useState<any>(null);
 
   const allNodes = [...mainNodes, ...controlNodes];
 
@@ -68,10 +73,25 @@ export default function BotSettingsPage() {
         
         console.log('[bot-settings] Parsed config:', parsed);
         
-        // Load screening config
+        // Load phase-specific configs
         if (parsed.phaseSettings?.screening) {
           setScreeningConfig(parsed.phaseSettings.screening);
           console.log('[bot-settings] Loaded screening config:', parsed.phaseSettings.screening);
+        }
+        if (parsed.phaseSettings?.qa) {
+          setQAConfig(parsed.phaseSettings.qa);
+        }
+        if (parsed.phaseSettings?.viewing) {
+          setViewingConfig(parsed.phaseSettings.viewing);
+        }
+        if (parsed.phaseSettings?.followup) {
+          setFollowUpConfig(parsed.phaseSettings.followup);
+        }
+        if (parsed.requireApproval) {
+          setApprovalsConfig(parsed.requireApproval);
+        }
+        if (parsed.phaseSettings?.handoff) {
+          setFallbackConfig(parsed.phaseSettings.handoff);
         }
         
         // Update enabled/disabled states based on loaded config
@@ -121,7 +141,7 @@ export default function BotSettingsPage() {
       const config = {
         automatedPhases,
         maxPhase: automatedPhases.length > 0 ? 'full' : 'none',
-        requireApproval: {
+        requireApproval: approvalsConfig || {
           beforeScreening: false,
           beforePropertyAdd: false,
           beforeViewingProposal: false,
@@ -137,11 +157,14 @@ export default function BotSettingsPage() {
             openingMessage: screeningConfig.openingMessage,
             questions: screeningConfig.questions
           } : undefined,
-          viewing: {
-            autoPropose: true, // From ViewingConfiguration
+          qa: qaConfig || undefined,
+          viewing: viewingConfig || {
+            autoPropose: true,
             autoBook: false,
             triggerAfterQA: true,
-          }
+          },
+          followup: followUpConfig || undefined,
+          handoff: fallbackConfig || undefined,
         }
       };
 
@@ -307,11 +330,36 @@ export default function BotSettingsPage() {
                 onConfigChange={(config) => setScreeningConfig(config)}
               />
             )}
-            {selectedNode === 'qa' && <QAConfiguration />}
-            {selectedNode === 'viewing' && <ViewingConfiguration />}
-            {selectedNode === 'followup' && <FollowUpConfiguration />}
-            {selectedNode === 'approvals' && <ApprovalsConfiguration />}
-            {selectedNode === 'fallback' && <FallbackConfiguration />}
+            {selectedNode === 'qa' && !isLoading && (
+              <QAConfiguration 
+                initialConfig={qaConfig}
+                onConfigChange={(config) => setQAConfig(config)}
+              />
+            )}
+            {selectedNode === 'viewing' && !isLoading && (
+              <ViewingConfiguration 
+                initialConfig={viewingConfig}
+                onConfigChange={(config) => setViewingConfig(config)}
+              />
+            )}
+            {selectedNode === 'followup' && !isLoading && (
+              <FollowUpConfiguration 
+                initialConfig={followUpConfig}
+                onConfigChange={(config) => setFollowUpConfig(config)}
+              />
+            )}
+            {selectedNode === 'approvals' && !isLoading && (
+              <ApprovalsConfiguration 
+                initialConfig={approvalsConfig}
+                onConfigChange={(config) => setApprovalsConfig(config)}
+              />
+            )}
+            {selectedNode === 'fallback' && !isLoading && (
+              <FallbackConfiguration 
+                initialConfig={fallbackConfig}
+                onConfigChange={(config) => setFallbackConfig(config)}
+              />
+            )}
           </div>
         </div>
       </div>

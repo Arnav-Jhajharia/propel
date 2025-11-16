@@ -8,7 +8,7 @@ export type PersistedLeadState = {
   propertyId?: string;
   propertyTitle?: string;
   propertyUrl?: string;
-  screeningFields?: Array<{ id: string; label: string }>;
+  screeningFields?: Array<{ id: string; label: string; prompt?: string }>;
   screeningAnswers?: Record<string, string>;
   screeningComplete?: boolean;
   offeredSlots?: string[];

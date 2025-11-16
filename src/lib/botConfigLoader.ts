@@ -1,6 +1,6 @@
 import { db } from "@/lib/db";
 import { botConfigs } from "@/lib/db";
-import { eq, and } from "drizzle-orm";
+import { eq, and, desc } from "drizzle-orm";
 import { AutomationConfig, AutomationConfigSchema } from "./botConfigParser";
 
 /**
@@ -64,6 +64,7 @@ export async function loadAutomationConfig(
     }
 
     // 3. Fall back to global config (lowest priority)
+    // Use the NEWEST config (DESC order) not the oldest
     const globalConfigs = await db
       .select()
       .from(botConfigs)
@@ -74,7 +75,7 @@ export async function loadAutomationConfig(
           eq(botConfigs.isActive, true)
         )
       )
-      .orderBy(botConfigs.createdAt)
+      .orderBy(desc(botConfigs.createdAt))
       .limit(1);
 
     if (globalConfigs.length > 0) {

@@ -51,11 +51,14 @@ export async function seedDummyProspectsForProperty(propertyId: string) {
   }
 
   const stagePlans = [
-    { label: "active", idx: 0, summary: "Initial interest captured. Awaiting screening.", lastMessageAt: "" },
-    { label: "screening_sent", idx: 1, summary: "Budget $7k, 2 pax, no pets.", lastMessageAt: nowIso(-60 * 60 * 1000) },
-    { label: "replied", idx: 2, summary: "Budget $6k, family of 3, flexible move-in.", lastMessageAt: nowIso(-2 * 60 * 60 * 1000) },
-    { label: "viewing_scheduled", idx: 3, summary: "Keen to view this weekend.", lastMessageAt: nowIso(-30 * 60 * 1000) },
-    { label: "converted", idx: 4, summary: "Offer accepted, proceeding to paperwork.", lastMessageAt: nowIso(-5 * 60 * 1000) },
+    { label: "active", idx: 0, summary: "Initial interest captured. Awaiting screening.", lastMessageAt: nowIso(-7 * 24 * 60 * 60 * 1000), score: 92 },
+    { label: "active", idx: 1, summary: "Looking for 2BR, budget flexible.", lastMessageAt: nowIso(-5 * 24 * 60 * 60 * 1000), score: 88 },
+    { label: "screening_sent", idx: 2, summary: "Budget $7k, 2 pax, no pets.", lastMessageAt: nowIso(-60 * 60 * 1000), score: 85 },
+    { label: "screening_sent", idx: 3, summary: "Family of 4, need parking.", lastMessageAt: nowIso(-3 * 60 * 60 * 1000), score: 82 },
+    { label: "replied", idx: 4, summary: "Budget $6k, family of 3, flexible move-in.", lastMessageAt: nowIso(-2 * 60 * 60 * 1000), score: 78 },
+    { label: "viewing_scheduled", idx: 0, summary: "Keen to view this weekend.", lastMessageAt: nowIso(-30 * 60 * 1000), score: 95 },
+    { label: "viewing_scheduled", idx: 1, summary: "Available for viewing Thursday.", lastMessageAt: nowIso(-45 * 60 * 1000), score: 90 },
+    { label: "converted", idx: 2, summary: "Offer accepted, proceeding to paperwork.", lastMessageAt: nowIso(-5 * 60 * 1000), score: 98 },
   ] as const;
 
   const created: Array<{ clientName: string; phone: string; stage: string }> = [];
@@ -73,15 +76,16 @@ export async function seedDummyProspectsForProperty(propertyId: string) {
       await db.insert(prospects).values({
         clientId: c.id,
         propertyId: propertyId,
-        score: 70 + plan.idx * 5,
+        score: plan.score,
         summary: plan.summary,
-        lastMessageAt: plan.lastMessageAt || "",
-        status: plan.label === "converted" ? "converted" : "active",
+        lastMessageAt: plan.lastMessageAt || nowIso(),
+        status: plan.label,
       });
-    } else if (plan.label === "converted") {
+    } else {
+      // Update existing prospect to the planned stage
       await db
         .update(prospects)
-        .set({ status: "converted", updatedAt: nowIso() })
+        .set({ status: plan.label, score: plan.score, summary: plan.summary, updatedAt: nowIso() })
         .where(eq(prospects.id, existingPros[0].id));
     }
 

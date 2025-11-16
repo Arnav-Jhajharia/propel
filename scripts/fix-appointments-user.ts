@@ -1,4 +1,5 @@
 import { db, appointments, users } from '../src/lib/db';
+import { eq } from 'drizzle-orm';
 
 async function fixAppointmentsUser() {
   console.log('🔧 Fixing appointments user ID...\n');
@@ -37,7 +38,7 @@ async function fixAppointmentsUser() {
         await db
           .update(appointments)
           .set({ userId: targetUser.id })
-          .where(appointments.id.equals(apt.id));
+          .where(eq(appointments.id, apt.id));
         updated++;
       }
     }
