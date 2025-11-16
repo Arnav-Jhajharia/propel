@@ -3,7 +3,7 @@ import { db } from "@/lib/db";
 import { conversationStates } from "@/lib/db";
 import { auth as clerkAuth } from "@clerk/nextjs/server";
 import { getSession } from "@/lib/simple-auth";
-import { eq } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 
 async function clearState(req: Request) {
   try {
@@ -25,15 +25,40 @@ async function clearState(req: Request) {
       } catch {}
     }
 
-    // Delete all conversation states for this user
-    await db
-      .delete(conversationStates)
-      .where(eq(conversationStates.userId, userId));
+    // Get optional clientPhone from request body
+    let clientPhone: string | undefined;
+    try {
+      const body = await req.json();
+      clientPhone = body?.clientPhone;
+    } catch {}
 
-    return NextResponse.json({ 
-      ok: true, 
-      message: "All bot conversation states cleared. Fresh start!" 
-    }, { status: 200 });
+    // Delete conversation states - either for specific client or all
+    if (clientPhone) {
+      // Clear specific client's conversation
+      await db
+        .delete(conversationStates)
+        .where(
+          and(
+            eq(conversationStates.userId, userId),
+            eq(conversationStates.clientPhone, clientPhone)
+          )
+        );
+
+      return NextResponse.json({ 
+        ok: true, 
+        message: `Conversation cleared for ${clientPhone}` 
+      }, { status: 200 });
+    } else {
+      // Clear all conversations for this user
+      await db
+        .delete(conversationStates)
+        .where(eq(conversationStates.userId, userId));
+
+      return NextResponse.json({ 
+        ok: true, 
+        message: "All bot conversation states cleared. Fresh start!" 
+      }, { status: 200 });
+    }
   } catch (error: any) {
     console.error("[clear-bot-state] Error:", error);
     return NextResponse.json({ 
