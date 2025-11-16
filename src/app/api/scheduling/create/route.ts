@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { db } from '@/lib/db';
-import { appointments } from '@/lib/db/schema';
+import { db, appointments } from '@/lib/db';
 import { getSession } from '@/lib/simple-auth';
 import { auth as clerkAuth } from '@clerk/nextjs/server';
 import { createId } from '@paralleldrive/cuid2';

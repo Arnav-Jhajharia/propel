@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { db } from '@/lib/db';
-import { appointments, clients, users } from '@/lib/db/schema';
+import { db, appointments, clients, users } from '@/lib/db';
 import { eq, and } from 'drizzle-orm';
 import { verifyCalendlySignature } from '@/lib/calendly';
 import { createId } from '@paralleldrive/cuid2';

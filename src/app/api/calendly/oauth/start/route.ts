@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createId } from '@paralleldrive/cuid2';
-import { db } from '@/lib/db';
-import { verifications } from '@/lib/db/schema';
+import { db, verifications } from '@/lib/db';
 import { calendlyOAuthAuthorizeUrl, getBaseUrl } from '@/lib/calendly';
 import { getSession } from '@/lib/simple-auth';
 import { auth as clerkAuth } from '@clerk/nextjs/server';

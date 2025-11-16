@@ -1,5 +1,4 @@
-import { db } from '../src/lib/db';
-import { appointments, users } from '../src/lib/db/schema';
+import { db, appointments, users } from '../src/lib/db';
 
 async function fixAppointmentsUser() {
   console.log('🔧 Fixing appointments user ID...\n');

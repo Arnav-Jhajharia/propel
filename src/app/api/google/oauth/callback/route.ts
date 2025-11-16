@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { db } from '@/lib/db';
-import { accounts, users, verifications } from '@/lib/db/schema';
+import { db, accounts, users, verifications } from '@/lib/db';
 import { and, eq, desc } from 'drizzle-orm';
 import { googleExchangeCodeForToken } from '@/lib/google';
 import { auth as clerkAuth, clerkClient } from '@clerk/nextjs/server';

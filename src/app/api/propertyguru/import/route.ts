@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { propertyGuruScraper } from '@/lib/propertyguru-scraper';
-import { db } from '@/lib/db';
-import { properties as propertiesTable } from '@/lib/db/schema';
+import { db, properties as propertiesTable } from '@/lib/db';
 import { and, eq } from 'drizzle-orm';
 import { auth } from '@clerk/nextjs/server';
 

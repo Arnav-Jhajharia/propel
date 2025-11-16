@@ -235,6 +235,23 @@ export const botConfigs = pgTable('bot_configs', {
 });
 
 /**
+ * TASKS
+ */
+export const tasks = pgTable('tasks', {
+  id: text('id').primaryKey().$defaultFn(() => createId()),
+  userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  title: text('title').notNull(),
+  description: text('description'),
+  completed: boolean('completed').default(false),
+  priority: text('priority').default('medium'),
+  dueDate: timestamp('due_date', { withTimezone: true, mode: 'string' }),
+  propertyId: text('property_id').references(() => properties.id, { onDelete: 'set null' }),
+  clientId: text('client_id').references(() => clients.id, { onDelete: 'set null' }),
+  createdAt: timestamp('created_at', { withTimezone: true, mode: 'string' }).defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'string' }).defaultNow(),
+});
+
+/**
  * TYPE EXPORTS
  */
 export type Property = typeof properties.$inferSelect;
@@ -270,4 +287,5 @@ export type NewUserSettings = typeof userSettings.$inferInsert;
 export type BotConfig = typeof botConfigs.$inferSelect;
 export type NewBotConfig = typeof botConfigs.$inferInsert;
 
-
+export type Task = typeof tasks.$inferSelect;
+export type NewTask = typeof tasks.$inferInsert;

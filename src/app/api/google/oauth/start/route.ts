@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createId } from '@paralleldrive/cuid2';
-import { db } from '@/lib/db';
-import { verifications } from '@/lib/db/schema';
+import { db, verifications } from '@/lib/db';
 import { googleAuthUrl } from '@/lib/google';
 import { auth as clerkAuth } from '@clerk/nextjs/server';
 import { getSession } from '@/lib/simple-auth';

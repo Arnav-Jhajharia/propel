@@ -195,6 +195,21 @@ export const botConfigs = sqliteTable('bot_configs', {
   updatedAt: text('updated_at').$defaultFn(() => new Date().toISOString()),
 });
 
+// Tasks for agent to-do list
+export const tasks = sqliteTable('tasks', {
+  id: text('id').primaryKey().$defaultFn(() => createId()),
+  userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  title: text('title').notNull(),
+  description: text('description'),
+  completed: integer('completed', { mode: 'boolean' }).default(false),
+  priority: text('priority').default('medium'), // 'low', 'medium', 'high'
+  dueDate: text('due_date'), // ISO date string
+  propertyId: text('property_id').references(() => properties.id, { onDelete: 'set null' }),
+  clientId: text('client_id').references(() => clients.id, { onDelete: 'set null' }),
+  createdAt: text('created_at').$defaultFn(() => new Date().toISOString()),
+  updatedAt: text('updated_at').$defaultFn(() => new Date().toISOString()),
+});
+
 // Type exports for TypeScript
 export type Property = typeof properties.$inferSelect;
 export type NewProperty = typeof properties.$inferInsert;
@@ -228,3 +243,6 @@ export type NewUserSettings = typeof userSettings.$inferInsert;
 
 export type BotConfig = typeof botConfigs.$inferSelect;
 export type NewBotConfig = typeof botConfigs.$inferInsert;
+
+export type Task = typeof tasks.$inferSelect;
+export type NewTask = typeof tasks.$inferInsert;

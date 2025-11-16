@@ -1,5 +1,4 @@
-import { db } from '@/lib/db';
-import { accounts } from '@/lib/db/schema';
+import { db, accounts } from '@/lib/db';
 import { and, eq } from 'drizzle-orm';
 
 function baseUrl(request?: Request): string {

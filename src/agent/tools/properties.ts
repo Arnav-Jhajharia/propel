@@ -59,6 +59,12 @@ export async function addPropertyFromUrl(propertyUrl: string, userId: string): P
     throw new Error("Failed to scrape property from portal");
   }
 
+  // Validate availableFrom - convert invalid dates to null
+  let availableFrom = scraped.availableFrom;
+  if (availableFrom === "TBD" || !availableFrom || availableFrom === "undefined") {
+    availableFrom = null;
+  }
+
   const newProperty: NewProperty = {
     userId,
     url: normalizedUrl,
@@ -72,7 +78,7 @@ export async function addPropertyFromUrl(propertyUrl: string, userId: string): P
     description: scraped.description,
     propertyType: scraped.propertyType,
     furnished: scraped.furnished,
-    availableFrom: scraped.availableFrom,
+    availableFrom: availableFrom,
   };
 
   const [inserted] = await db.insert(propertiesTable).values(newProperty).returning();

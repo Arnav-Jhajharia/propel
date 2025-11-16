@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { db } from '@/lib/db';
-import { accounts, users, verifications } from '@/lib/db/schema';
+import { db, accounts, users, verifications } from '@/lib/db';
 import { and, eq, desc } from 'drizzle-orm';
 import { calendlyExchangeCodeForToken, calendlyGetCurrentUser, calendlyCreateUserWebhook, getBaseUrl } from '@/lib/calendly';
 import { getSession } from '@/lib/simple-auth';

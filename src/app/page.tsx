@@ -6,6 +6,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Input } from "@/components/ui/input";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { tiemposHeadline } from "./fonts";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -24,6 +26,9 @@ import {
   Eye,
   Clock,
   CheckCircle2,
+  Circle,
+  X,
+  Plus,
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -66,6 +71,27 @@ type TopProperty = {
   price: number;
 };
 
+type Task = {
+  id: string;
+  title: string;
+  description?: string | null;
+  completed: boolean;
+  priority: string;
+  dueDate?: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+type ProspectWithClient = {
+  id: string;
+  clientId: string;
+  clientName: string;
+  propertyTitle: string;
+  score: number;
+  status: string | null;
+  lastMessageAt: string;
+};
+
 export default function DashboardPage() {
   const router = useRouter();
   const now = new Date();
@@ -85,6 +111,11 @@ export default function DashboardPage() {
   const [recentProspects, setRecentProspects] = useState<RecentProspect[]>([]);
   const [topProperties, setTopProperties] = useState<TopProperty[]>([]);
   const [loading, setLoading] = useState(true);
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [tasksLoading, setTasksLoading] = useState(true);
+  const [newTaskTitle, setNewTaskTitle] = useState("");
+  const [addTaskDialogOpen, setAddTaskDialogOpen] = useState(false);
+  const [pipelineProspects, setPipelineProspects] = useState<ProspectWithClient[]>([]);
 
   useEffect(() => {
     const t1 = setTimeout(() => setShowGreeting(true), 200);
@@ -172,6 +203,21 @@ export default function DashboardPage() {
           }));
         setRecentProspects(recent);
 
+        // Get top prospects for pipeline visualization (top 3 by score)
+        const topProspects = prospects
+          .sort((a: any, b: any) => b.score - a.score)
+          .slice(0, 15)
+          .map((p: any) => ({
+            id: p.id,
+            clientId: p.clientId,
+            clientName: p.clientName,
+            propertyTitle: p.propertyTitle,
+            score: p.score,
+            status: p.status || 'active',
+            lastMessageAt: p.lastMessageAt,
+          }));
+        setPipelineProspects(topProspects);
+
         // Get top properties
         const propsWithCounts = await Promise.all(
           properties.slice(0, 5).map(async (p: any) => {
@@ -210,6 +256,81 @@ export default function DashboardPage() {
 
     load();
   }, []);
+
+  // Load tasks
+  useEffect(() => {
+    const loadTasks = async () => {
+      setTasksLoading(true);
+      try {
+        const res = await fetch("/api/tasks", { credentials: "include" });
+        if (res.ok) {
+          const data = await res.json();
+          setTasks(data.tasks || []);
+        }
+      } catch (error) {
+        console.error("Error loading tasks:", error);
+      } finally {
+        setTasksLoading(false);
+      }
+    };
+    loadTasks();
+  }, []);
+
+  const handleAddTask = async () => {
+    if (!newTaskTitle.trim()) return;
+
+    try {
+      const res = await fetch("/api/tasks", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title: newTaskTitle }),
+        credentials: "include",
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        setTasks([data.task, ...tasks]);
+        setNewTaskTitle("");
+        setAddTaskDialogOpen(false);
+      }
+    } catch (error) {
+      console.error("Error adding task:", error);
+    }
+  };
+
+  const handleToggleTask = async (taskId: string, completed: boolean) => {
+    try {
+      const res = await fetch("/api/tasks", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ taskId, updates: { completed: !completed } }),
+        credentials: "include",
+      });
+
+      if (res.ok) {
+        setTasks(
+          tasks.map((t) => (t.id === taskId ? { ...t, completed: !completed } : t))
+        );
+      }
+    } catch (error) {
+      console.error("Error toggling task:", error);
+    }
+  };
+
+  const handleDeleteTask = async (taskId: string) => {
+    try {
+      const res = await fetch(`/api/tasks?id=${taskId}`, {
+        method: "DELETE",
+        credentials: "include",
+      });
+
+      if (res.ok) {
+        setTasks(tasks.filter((t) => t.id !== taskId));
+      }
+    } catch (error) {
+      console.error("Error deleting task:", error);
+    }
+  };
 
   const formatTimeAgo = (dateString: string) => {
     const date = new Date(dateString);
@@ -370,48 +491,86 @@ export default function DashboardPage() {
             {/* Pipeline Stage Breakdown */}
             <Card>
               <CardContent className="p-6">
-                <h2 className="font-semibold text-lg mb-4">Pipeline Stage Breakdown</h2>
-                <div className="space-y-4">
-                  {/* Minimalist horizontal bar chart */}
-                  <div className="space-y-3">
-                    <div>
-                      <div className="flex items-center justify-between text-sm mb-1.5">
-                        <span className="text-muted-foreground">Inquiry</span>
-                        <span className="font-medium">{loading ? "..." : Math.floor(stats.totalProspects * 0.4)}</span>
-                      </div>
-                      <div className="h-2 bg-muted rounded-full overflow-hidden">
-                        <div className="h-full bg-primary rounded-full" style={{ width: "40%" }} />
+                <h2 className="font-semibold text-lg mb-6">Pipeline Stage Breakdown</h2>
+                {loading ? (
+                  <div className="text-center py-8">
+                    <div className="text-sm text-muted-foreground">Loading pipeline...</div>
+                  </div>
+                ) : (
+                  <div className="space-y-8">
+                    {/* Pipeline visualization */}
+                    <div className="relative">
+                      {/* Pipeline line */}
+                      <div className="absolute top-6 left-0 right-0 h-0.5 bg-muted" />
+                      
+                      {/* Pipeline stages */}
+                      <div className="relative flex justify-between items-start">
+                        {[
+                          { key: 'active', label: 'Inquiry', color: 'bg-blue-500' },
+                          { key: 'screening_sent', label: 'Screening', color: 'bg-purple-500' },
+                          { key: 'replied', label: 'Qualified', color: 'bg-yellow-500' },
+                          { key: 'viewing_scheduled', label: 'Viewing', color: 'bg-orange-500' },
+                          { key: 'converted', label: 'Converted', color: 'bg-green-500' },
+                        ].map((stage, idx) => {
+                          const prospectsInStage = pipelineProspects.filter(p => p.status === stage.key);
+                          const count = pipelineProspects.filter(p => p.status === stage.key).length;
+                          
+                          return (
+                            <div key={stage.key} className="flex flex-col items-center" style={{ width: '18%' }}>
+                              {/* Node */}
+                              <div className="relative z-10 mb-3">
+                                <div className={`w-12 h-12 rounded-full ${stage.color} flex items-center justify-center text-white font-bold shadow-lg`}>
+                                  {count}
+                                </div>
+                              </div>
+                              
+                              {/* Stage label */}
+                              <div className="text-xs font-medium text-center mb-2">{stage.label}</div>
+                              
+                              {/* Top prospects in this stage */}
+                              <div className="w-full space-y-1">
+                                {prospectsInStage.slice(0, 2).map((prospect) => (
+                                  <div
+                                    key={prospect.id}
+                                    className="text-[10px] bg-muted/50 rounded px-2 py-1 text-center truncate cursor-pointer hover:bg-muted transition-colors"
+                                    onClick={() => router.push(`/clients/${prospect.clientId}`)}
+                                    title={`${prospect.clientName} - Score: ${prospect.score}`}
+                                  >
+                                    {prospect.clientName.split(' ')[0]}
+                                    <div className="text-[8px] text-muted-foreground">
+                                      {prospect.score}
+                                    </div>
+                                  </div>
+                                ))}
+                                {prospectsInStage.length > 2 && (
+                                  <div className="text-[9px] text-muted-foreground text-center">
+                                    +{prospectsInStage.length - 2} more
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })}
                       </div>
                     </div>
-                    <div>
-                      <div className="flex items-center justify-between text-sm mb-1.5">
-                        <span className="text-muted-foreground">Nurturing</span>
-                        <span className="font-medium">{loading ? "..." : Math.floor(stats.totalProspects * 0.3)}</span>
-                      </div>
-                      <div className="h-2 bg-muted rounded-full overflow-hidden">
-                        <div className="h-full bg-chart-2 rounded-full" style={{ width: "30%" }} />
-                      </div>
-                    </div>
-                    <div>
-                      <div className="flex items-center justify-between text-sm mb-1.5">
-                        <span className="text-muted-foreground">Negotiation</span>
-                        <span className="font-medium">{loading ? "..." : Math.floor(stats.totalProspects * 0.2)}</span>
-                      </div>
-                      <div className="h-2 bg-muted rounded-full overflow-hidden">
-                        <div className="h-full bg-chart-3 rounded-full" style={{ width: "20%" }} />
-                      </div>
-                    </div>
-                    <div>
-                      <div className="flex items-center justify-between text-sm mb-1.5">
-                        <span className="text-muted-foreground">Closing</span>
-                        <span className="font-medium">{loading ? "..." : Math.floor(stats.totalProspects * 0.1)}</span>
-                      </div>
-                      <div className="h-2 bg-muted rounded-full overflow-hidden">
-                        <div className="h-full bg-chart-4 rounded-full" style={{ width: "10%" }} />
-                      </div>
+
+                    {/* Summary stats */}
+                    <div className="grid grid-cols-5 gap-2 pt-4 border-t">
+                      {[
+                        { key: 'active', label: 'Inquiry', count: pipelineProspects.filter(p => p.status === 'active').length },
+                        { key: 'screening_sent', label: 'Screening', count: pipelineProspects.filter(p => p.status === 'screening_sent').length },
+                        { key: 'replied', label: 'Qualified', count: pipelineProspects.filter(p => p.status === 'replied').length },
+                        { key: 'viewing_scheduled', label: 'Viewing', count: pipelineProspects.filter(p => p.status === 'viewing_scheduled').length },
+                        { key: 'converted', label: 'Converted', count: pipelineProspects.filter(p => p.status === 'converted').length },
+                      ].map((stage) => (
+                        <div key={stage.key} className="text-center">
+                          <div className="text-xl font-bold">{stage.count}</div>
+                          <div className="text-[10px] text-muted-foreground">{stage.label}</div>
+                        </div>
+                      ))}
                     </div>
                   </div>
-                </div>
+                )}
               </CardContent>
             </Card>
 
@@ -459,44 +618,74 @@ export default function DashboardPage() {
           <Card className="lg:sticky lg:top-20 self-start">
             <CardContent className="p-6">
               <h2 className="font-semibold text-lg mb-4">Task List</h2>
-              <div className="space-y-2">
-                {/* Checkbox-style task list */}
-                <div className="flex items-start gap-3 p-2 rounded-lg hover:bg-muted/50 cursor-pointer transition-colors">
-                  <div className="flex-shrink-0 mt-0.5">
-                    <CheckCircle2 className="h-4 w-4 text-muted-foreground" />
-                  </div>
-                  <div className="flex-1 text-sm">
-                    Prepare listing for new property
-                  </div>
-                </div>
-                <div className="flex items-start gap-3 p-2 rounded-lg hover:bg-muted/50 cursor-pointer transition-colors">
-                  <div className="flex-shrink-0 mt-0.5">
-                    <div className="h-4 w-4 rounded border-2 border-muted-foreground" />
-                  </div>
-                  <div className="flex-1 text-sm">
-                    Follow up with hot leads
-                  </div>
-                </div>
-                <div className="flex items-start gap-3 p-2 rounded-lg hover:bg-muted/50 cursor-pointer transition-colors">
-                  <div className="flex-shrink-0 mt-0.5">
-                    <div className="h-4 w-4 rounded border-2 border-muted-foreground" />
-                  </div>
-                  <div className="flex-1 text-sm">
-                    Review contract for 123 Main St
-                  </div>
-                </div>
-                <div className="flex items-start gap-3 p-2 rounded-lg hover:bg-muted/50 cursor-pointer transition-colors">
-                  <div className="flex-shrink-0 mt-0.5">
-                    <div className="h-4 w-4 rounded border-2 border-muted-foreground" />
-                  </div>
-                  <div className="flex-1 text-sm">
-                    Update property photos
-                  </div>
-                </div>
+              <div className="space-y-2 max-h-[400px] overflow-y-auto">
+                {tasksLoading ? (
+                  <div className="text-sm text-muted-foreground text-center py-4">Loading tasks...</div>
+                ) : tasks.length === 0 ? (
+                  <div className="text-sm text-muted-foreground text-center py-4">No tasks yet</div>
+                ) : (
+                  tasks.map((task) => (
+                    <div
+                      key={task.id}
+                      className="flex items-start gap-3 p-2 rounded-lg hover:bg-muted/50 transition-colors group"
+                    >
+                      <button
+                        onClick={() => handleToggleTask(task.id, task.completed)}
+                        className="flex-shrink-0 mt-0.5 cursor-pointer"
+                      >
+                        {task.completed ? (
+                          <CheckCircle2 className="h-4 w-4 text-primary" />
+                        ) : (
+                          <Circle className="h-4 w-4 text-muted-foreground" />
+                        )}
+                      </button>
+                      <div className="flex-1 text-sm">
+                        <span className={task.completed ? "line-through text-muted-foreground" : ""}>
+                          {task.title}
+                        </span>
+                      </div>
+                      <button
+                        onClick={() => handleDeleteTask(task.id)}
+                        className="flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                      >
+                        <X className="h-4 w-4 text-muted-foreground hover:text-destructive" />
+                      </button>
+                    </div>
+                  ))
+                )}
               </div>
-              <Button variant="ghost" size="sm" className="w-full mt-4 text-muted-foreground">
-                + Add task
-              </Button>
+              <Dialog open={addTaskDialogOpen} onOpenChange={setAddTaskDialogOpen}>
+                <DialogTrigger asChild>
+                  <Button variant="ghost" size="sm" className="w-full mt-4 text-muted-foreground">
+                    <Plus className="h-4 w-4 mr-1" />
+                    Add task
+                  </Button>
+                </DialogTrigger>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>Add New Task</DialogTitle>
+                  </DialogHeader>
+                  <div className="space-y-4 pt-4">
+                    <Input
+                      placeholder="Task title..."
+                      value={newTaskTitle}
+                      onChange={(e) => setNewTaskTitle(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          handleAddTask();
+                        }
+                      }}
+                      autoFocus
+                    />
+                    <div className="flex gap-2 justify-end">
+                      <Button variant="outline" onClick={() => setAddTaskDialogOpen(false)}>
+                        Cancel
+                      </Button>
+                      <Button onClick={handleAddTask}>Add Task</Button>
+                    </div>
+                  </div>
+                </DialogContent>
+              </Dialog>
             </CardContent>
           </Card>
         </div>
