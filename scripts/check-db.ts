@@ -1,5 +1,4 @@
-import { db } from '../src/lib/db';
-import { users, appointments } from '../src/lib/db/schema';
+import { db, users, appointments } from '../src/lib/db';
 
 async function checkDatabase() {
   console.log('🔍 Checking database...\n');
