@@ -29,7 +29,7 @@ const nextConfig: NextConfig = {
       // { protocol: 'https', hostname: 'your-cdn.com' },
     ],
   },
-  outputFileTracingRoot: path.resolve(__dirname, '../../'),
+  // Removed: outputFileTracingRoot - not needed for standard Next.js projects
   turbopack: {
     rules: {
       "*.{jsx,tsx}": {

@@ -364,7 +364,10 @@ export function getApp() {
       const answers = await extractScreeningAnswers(state.history || [], state.message, fields);
       const merged = { ...prev, ...answers };
       
+      console.log('[capture_screening_answers] ===== DEBUG =====');
+      console.log('[capture_screening_answers] Fields:', fields.map(f => ({ id: f.id, label: f.label })));
       console.log('[capture_screening_answers] Extracted answers:', answers);
+      console.log('[capture_screening_answers] Previous answers:', prev);
       console.log('[capture_screening_answers] Merged answers:', merged);
       
       // Determine remaining unanswered fields
@@ -372,10 +375,21 @@ export function getApp() {
       const remaining = fields.filter((f) => {
         const hasAnswerById = merged[f.id] && merged[f.id] !== 'not specified';
         const hasAnswerByLabel = merged[f.label] && merged[f.label] !== 'not specified';
-        return !hasAnswerById && !hasAnswerByLabel;
+        const isAnswered = hasAnswerById || hasAnswerByLabel;
+        
+        console.log(`[capture_screening_answers] Field "${f.label}" (id: ${f.id}):`, {
+          hasAnswerById,
+          hasAnswerByLabel,
+          isAnswered,
+          answerById: merged[f.id],
+          answerByLabel: merged[f.label]
+        });
+        
+        return !isAnswered;
       });
       
-      console.log('[capture_screening_answers] Remaining fields:', remaining);
+      console.log('[capture_screening_answers] Remaining count:', remaining.length);
+      console.log('[capture_screening_answers] Remaining fields:', remaining.map(f => f.label));
       
       if (remaining.length > 0) {
         // DON'T use LLM - use exact configured question prompts!
@@ -563,20 +577,14 @@ export function getApp() {
           return new Command({ goto: "fallback" }) as any;
         }
         
-        // Check if we have actual partial answers (not just "not specified")
-        const hasRealAnswers = state.screeningAnswers && Object.values(state.screeningAnswers).some(
-          (val) => val && val !== 'not specified' && val.trim() !== ''
-        );
-        
-        // If we have screening fields AND real answers, we're in the middle of screening
-        // Route to capture_screening_answers to process the user's response
-        if (state.screeningFields && state.screeningFields.length > 0 && hasRealAnswers) {
-          console.log('[router] → Going to capture_screening_answers (mid-screening with', 
-            Object.keys(state.screeningAnswers || {}).length, 'answers)');
+        // If we have screening fields set, we've already asked questions
+        // Route to capture_screening_answers to extract answers from user's response
+        if (state.screeningFields && state.screeningFields.length > 0) {
+          console.log('[router] → Going to capture_screening_answers (screening in progress)');
           return new Command({ goto: "capture_screening_answers" }) as any;
         }
         
-        // No screening started yet - ask all questions
+        // No screening fields yet - ask all questions for the first time
         console.log('[router] → Going to prompt_screening (start fresh screening)');
         return new Command({ goto: "prompt_screening" }) as any;
       }
