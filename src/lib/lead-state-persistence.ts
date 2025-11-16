@@ -1,5 +1,4 @@
-import { db } from "@/lib/db";
-import { conversationStates } from "@/lib/db/schema";
+import { db, conversationStates } from "@/lib/db";
 import { eq, and, desc } from "drizzle-orm";
 
 /**

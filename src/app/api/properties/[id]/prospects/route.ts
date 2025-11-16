@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
-import { db } from "@/lib/db";
 import {
+  db,
   properties,
   prospects,
   clients,
@@ -8,7 +8,7 @@ import {
   conversations,
   messages,
   conversationStates,
-} from "@/lib/db/schema";
+} from "@/lib/db";
 import { and, desc, eq, inArray, isNotNull } from "drizzle-orm";
 
 export async function GET(

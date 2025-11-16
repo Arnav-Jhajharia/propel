@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
-import { db } from "@/lib/db";
-import { clients, prospects, properties } from "@/lib/db/schema";
+import { db, clients, prospects, properties } from "@/lib/db";
 import { eq, desc } from "drizzle-orm";
 
 export async function GET() {

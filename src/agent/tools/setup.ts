@@ -1,10 +1,10 @@
-import { db } from "@/lib/db";
 import {
+  db,
   users,
   properties,
   screeningTemplates,
   userSettings,
-} from "@/lib/db/schema";
+} from "@/lib/db";
 import { and, eq } from "drizzle-orm";
 import { googleAuthUrl } from "@/lib/google";
 

@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
-import { db } from "@/lib/db";
-import { clients, conversations, messages, users } from "@/lib/db/schema";
+import { db, clients, conversations, messages, users } from "@/lib/db";
 import { eq, and, desc } from "drizzle-orm";
 import { simpleDecrypt } from "@/lib/encryption";
 import { runLeadAgent } from "@/agent/leadGraph";

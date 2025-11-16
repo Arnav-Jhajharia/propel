@@ -1,5 +1,4 @@
-import { db } from "@/lib/db";
-import { properties, prospects, clients, type Property } from "@/lib/db/schema";
+import { db, properties, prospects, clients, type Property } from "@/lib/db";
 import { desc, eq } from "drizzle-orm";
 
 export async function listRecentProperties(userId: string, limit = 6): Promise<Array<Pick<Property, "id" | "title" | "address" | "price">>> {

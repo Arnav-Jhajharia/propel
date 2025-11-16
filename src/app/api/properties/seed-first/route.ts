@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
-import { db } from "@/lib/db";
 import {
+  db,
   properties,
   clients,
   prospects,
@@ -8,7 +8,7 @@ import {
   messages,
   appointments,
   conversationStates,
-} from "@/lib/db/schema";
+} from "@/lib/db";
 import { and, eq, inArray } from "drizzle-orm";
 
 function nowIso(offsetMs = 0) {

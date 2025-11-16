@@ -1,5 +1,4 @@
-import { db } from "@/lib/db";
-import { properties as propertiesTable, type NewProperty } from "@/lib/db/schema";
+import { db, properties as propertiesTable, type NewProperty } from "@/lib/db";
 import { and, eq } from "drizzle-orm";
 import { scrapePortalProperty } from "@/lib/portal-scraper";
 

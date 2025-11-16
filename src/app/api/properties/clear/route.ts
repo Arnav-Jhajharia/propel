@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
-import { db } from "@/lib/db";
-import { appointments, conversations, properties, prospects } from "@/lib/db/schema";
+import { db, appointments, conversations, properties, prospects } from "@/lib/db";
 import { and, eq, inArray, isNotNull } from "drizzle-orm";
 
 export async function POST() {

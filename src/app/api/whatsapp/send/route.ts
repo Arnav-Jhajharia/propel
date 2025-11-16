@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { getSession } from "@/lib/simple-auth";
-import { db } from "@/lib/db";
-import { users, messages, conversations, clients } from "@/lib/db/schema";
+import { db, users, messages, conversations, clients } from "@/lib/db";
 import { eq, and } from "drizzle-orm";
 import { simpleDecrypt } from "@/lib/encryption";
 import { validatePhoneNumber } from "@/lib/phone-validation";

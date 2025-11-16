@@ -1,14 +1,14 @@
 import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
-import { db } from "@/lib/db";
 import {
+  db,
   properties,
   clients,
   prospects,
   conversations,
   messages,
   appointments,
-} from "@/lib/db/schema";
+} from "@/lib/db";
 import { and, eq } from "drizzle-orm";
 
 function nowIso(offsetMs = 0) {

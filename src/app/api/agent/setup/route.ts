@@ -3,8 +3,7 @@ import { z } from "zod";
 import { runSetupAgent } from "@/agent/setupGraph";
 import { getSession } from "@/lib/simple-auth";
 import { auth as clerkAuth, clerkClient } from "@clerk/nextjs/server";
-import { db } from "@/lib/db";
-import { users } from "@/lib/db/schema";
+import { db, users } from "@/lib/db";
 import { eq } from "drizzle-orm";
 
 const BodySchema = z.object({

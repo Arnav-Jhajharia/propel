@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
-import { db } from "@/lib/db";
-import { properties, type NewProperty } from "@/lib/db/schema";
+import { db, properties, type NewProperty } from "@/lib/db";
 import { scrapePortalProperty } from "@/lib/portal-scraper";
 import { and, eq } from "drizzle-orm";
 import { auth } from "@clerk/nextjs/server";

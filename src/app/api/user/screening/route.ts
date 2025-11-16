@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
-import { db } from "@/lib/db";
-import { screeningTemplates } from "@/lib/db/schema";
+import { db, screeningTemplates } from "@/lib/db";
 import { and, eq } from "drizzle-orm";
 import { draftWhatsAppReply } from "@/agent/llm";
 

@@ -1,5 +1,4 @@
-import { db } from "@/lib/db";
-import { appointments, users } from "@/lib/db/schema";
+import { db, appointments, users } from "@/lib/db";
 import { and, eq } from "drizzle-orm";
 
 function baseUrl(): string {
