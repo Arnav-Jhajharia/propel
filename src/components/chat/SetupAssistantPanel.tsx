@@ -55,7 +55,7 @@ export default function SetupAssistantPanel() {
         {messages.map((m) => (
           <div key={m.id} className="space-y-2">
             <div className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
-              <div className={`max-w-[80%] rounded-2xl px-3 py-2 text-sm ${m.role === "user" ? "bg-[#e9b6a5] text-white" : "bg-muted"}`}>
+              <div className={`max-w-[80%] rounded-2xl px-3 py-2 text-sm ${m.role === "user" ? "bg-primary text-white" : "bg-muted"}`}>
                 {m.text}
               </div>
             </div>

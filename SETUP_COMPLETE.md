@@ -103,3 +103,9 @@ Everything is ready to use! Just run `npm run dev` and test your dashboard.
 
 The drizzle-kit error is cosmetic - your database schema is correct and complete. 🎉
 
+
+
+
+
+
+

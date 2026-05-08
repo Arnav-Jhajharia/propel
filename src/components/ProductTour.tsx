@@ -117,7 +117,7 @@ export default function ProductTour({ autoStart = false }: { autoStart?: boolean
             </button>
           )}
           <button
-            className="text-sm px-3 py-1.5 rounded-md bg-[#e9b6a5] text-white hover:opacity-90"
+            className="text-sm px-3 py-1.5 rounded-md bg-primary text-white hover:opacity-90"
             onClick={() => {
               if (index < steps.length - 1) setIndex((i) => i + 1);
               else setRun(false);

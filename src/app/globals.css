@@ -52,58 +52,58 @@
 :root {
   --radius: 0.625rem; /* 10px - soft rounded corners per design spec */
   
-  /* Design System: Minimalist, Claude-like aesthetic with warm terracotta accent */
-  /* Base: Light neutral background */
-  --background: #FAFAFA; /* Off-white base */
-  --foreground: #1C1C1C; /* Near-black text */
+  /* Design System: Claude-inspired aesthetic with purple/indigo tones */
+  /* Base: Warm neutral background */
+  --background: #FAF9F6; /* Warm off-white base */
+  --foreground: #1C1917; /* Deep warm gray text */
   
   /* Cards & Surfaces */
   --card: #FFFFFF; /* Pure white cards */
-  --card-foreground: #1C1C1C;
+  --card-foreground: #1C1917;
   --popover: #FFFFFF;
-  --popover-foreground: #1C1C1C;
+  --popover-foreground: #1C1917;
   
-  /* Primary Accent: Muted Orange/Terracotta #E97451 */
-  --primary: #E97451; /* Warm terracotta for primary actions */
+  /* Primary Accent: Claude Purple */
+  --primary: #8B5CF6; /* Vibrant purple for primary actions */
   --primary-foreground: #FFFFFF; /* White text on primary */
   
-  /* Secondary: Neutral with accent text */
-  --secondary: #F5F5F5; /* Light gray background */
-  --secondary-foreground: #E97451; /* Accent-colored text */
+  /* Secondary: Warm neutral with purple accent */
+  --secondary: #F5F4F1; /* Warm light gray background */
+  --secondary-foreground: #7C3AED; /* Deep purple text */
   
   /* Muted elements */
-  --muted: #F5F5F5; /* Subtle gray */
-  --muted-foreground: #6B6B6B; /* Medium gray text */
+  --muted: #F5F4F1; /* Warm subtle gray */
+  --muted-foreground: #78716C; /* Warm medium gray text */
   
   /* Accent highlights */
-  --accent: #FFF5F2; /* Very light terracotta tint */
-  --accent-foreground: #E97451; /* Terracotta text */
+  --accent: #F5F3FF; /* Very light purple tint */
+  --accent-foreground: #7C3AED; /* Deep purple text */
   
   /* Destructive */
   --destructive: #DC2626; /* Red for errors */
   --destructive-foreground: #FFFFFF;
   
   /* Borders & Inputs */
-  --border: #E5E5E5; /* Light gray borders */
-  --input: #E5E5E5;
-  --ring: #E97451; /* Terracotta focus rings */
+  --border: #E7E5E4; /* Warm light gray borders */
+  --input: #E7E5E4;
+  --ring: #8B5CF6; /* Purple focus rings */
   
-  /* Charts using warm palette */
-  --chart-1: #E97451; /* Primary terracotta */
-  --chart-2: #F4A261; /* Warm orange */
-  --chart-3: #E76F51; /* Burnt sienna */
-  --chart-4: #2A9D8F; /* Teal accent */
-  --chart-5: #264653; /* Deep blue-gray */
+  /* Charts using purple/warm palette */
+  --chart-1: #8B5CF6; /* Primary purple */
+  --chart-2: #06B6D4; /* Cyan accent */
+  --chart-3: #10B981; /* Emerald accent */
+  --chart-4: #F59E0B; /* Amber accent */
+  --chart-5: #EC4899; /* Pink accent */
   
-  /* Sidebar: Clean, icon-only navigation */
+  /* Sidebar: Clean, modern navigation */
   --sidebar: #FFFFFF; /* White sidebar */
-  --sidebar-foreground: #1C1C1C;
-  --sidebar-primary: #E97451; /* Active state uses accent */
+  --sidebar-foreground: #1C1917;
+  --sidebar-primary: #8B5CF6; /* Active state uses purple */
   --sidebar-primary-foreground: #FFFFFF;
-  --sidebar-accent: #FFF5F2; /* Light terracotta hover */
-  --sidebar-accent-foreground: #E97451;
-  --sidebar-border: #E5E5E5;
-  --sidebar-ring: #E97451;
+  --sidebar-accent: #F5F3FF; /* Light purple hover */
+  --sidebar-accent-foreground: #7C3AED;
+  --sidebar-border: #E7E5E4;
+  --sidebar-ring: #8B5CF6;
 }
 
 .dark {

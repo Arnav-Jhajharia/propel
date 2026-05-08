@@ -29,3 +29,9 @@ CREATE INDEX IF NOT EXISTS idx_tasks_client_id ON tasks(client_id);
 -- Add comment for documentation
 COMMENT ON TABLE tasks IS 'Agent task list for managing to-dos';
 
+
+
+
+
+
+

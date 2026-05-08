@@ -158,3 +158,9 @@ To test the new features:
 - Pipeline only shows top 15 prospects by score (configurable)
 - Pipeline prospects are loaded on initial page load (no real-time updates yet)
 
+
+
+
+
+
+

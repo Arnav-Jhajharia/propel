@@ -178,7 +178,7 @@ export function AssistantWidget({ initiallyHidden = false, lockedUntilReveal = f
 
         {/* Submit */}
         <button
-          className="h-10 w-10 rounded-xl bg-[#e9b6a5] text-white flex items-center justify-center hover:opacity-90 disabled:opacity-60"
+          className="h-10 w-10 rounded-xl bg-primary text-white flex items-center justify-center hover:opacity-90 disabled:opacity-60"
           disabled={sending || !input.trim()}
           onClick={async () => {
             if (!input.trim() || sending) return;
@@ -263,7 +263,7 @@ export function AssistantWidget({ initiallyHidden = false, lockedUntilReveal = f
                   <div key={m.id} className="space-y-2">
                     {m.linkOnly ? null : (
                       <div className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
-                        <div className={`max-w-[80%] whitespace-pre-wrap rounded-2xl px-3 py-2 text-sm ${m.role === "user" ? "bg-[#e9b6a5] text-white" : "bg-muted"}`}>
+                        <div className={`max-w-[80%] whitespace-pre-wrap rounded-2xl px-3 py-2 text-sm ${m.role === "user" ? "bg-primary text-white" : "bg-muted"}`}>
                           {m.text}
                         </div>
                       </div>

@@ -1,5 +1,5 @@
 import { db, conversationStates } from "@/lib/db";
-import { eq, and, desc } from "drizzle-orm";
+import { eq, and, desc, or } from "drizzle-orm";
 
 /**
  * Lead graph state that should be persisted between conversations
@@ -41,12 +41,13 @@ export async function saveLeadState(
       answers: JSON.stringify({
         screeningAnswers: state.screeningAnswers || {},
         screeningFields: state.screeningFields || [],
-        screeningComplete: state.screeningComplete || false,
+        screeningComplete: state.screeningComplete === true,
         propertyTitle: state.propertyTitle,
         propertyUrl: state.propertyUrl,
         offeredSlots: state.offeredSlots || [],
       }),
-      status: state.screeningComplete ? "completed" : "active",
+      // Keep status as "active" - conversation continues even after screening
+      status: "active",
     };
 
     if (existing.length > 0) {
@@ -87,7 +88,11 @@ export async function loadLeadState(
         and(
           eq(conversationStates.userId, userId),
           eq(conversationStates.clientPhone, clientPhone),
-          eq(conversationStates.status, "active")
+          // Load both active and completed conversations
+          or(
+            eq(conversationStates.status, "active"),
+            eq(conversationStates.status, "completed")
+          )
         )
       )
       .orderBy(desc(conversationStates.updatedAt))
@@ -114,7 +119,7 @@ export async function loadLeadState(
       propertyUrl: answers.propertyUrl,
       screeningFields: answers.screeningFields || [],
       screeningAnswers: answers.screeningAnswers || {},
-      screeningComplete: answers.screeningComplete || false,
+      screeningComplete: answers.screeningComplete === true,
       offeredSlots: answers.offeredSlots || [],
     };
   } catch (error) {
